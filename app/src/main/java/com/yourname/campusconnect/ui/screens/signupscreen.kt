@@ -165,7 +165,10 @@ fun SignUpScreen(
                 }
             }
         }
+
+
     }
+
 
     LaunchedEffect(authState) {
         when (val state = authState) {
@@ -177,4 +180,6 @@ fun SignUpScreen(
             else -> {}
         }
     }
+
+
 }
