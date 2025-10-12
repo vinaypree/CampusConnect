@@ -179,6 +179,7 @@ fun LoginScreen(
         }
     }
 
+
     LaunchedEffect(authState) {
         when (val state = authState) {
             is AuthViewModel.AuthState.Authenticated -> onLoginSuccess()
@@ -189,4 +190,7 @@ fun LoginScreen(
             else -> {}
         }
     }
+
+
 }
+
