@@ -101,3 +101,5 @@ fun PostCard(authorName: String, authorInfo: String, postText: String, isFriends
         }
     }
 }
+
+
