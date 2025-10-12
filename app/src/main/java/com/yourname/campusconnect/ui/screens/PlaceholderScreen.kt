@@ -19,3 +19,6 @@ fun PlaceholderScreen(text: String) {
         Text(text = text, color = Color.Gray) // Changed color to Gray to be visible on light theme
     }
 }
+
+
+
