@@ -34,11 +34,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "splash") {
+
 
         composable("splash") {
             SplashScreen(navController = navController)
@@ -91,4 +93,5 @@ fun AppNavigation() {
 //        composable("matches") { PlaceholderScreen(text = "Matches Screen") }
 //        composable("chat") { PlaceholderScreen(text = "Chat Screen") }
     }
+
 }
