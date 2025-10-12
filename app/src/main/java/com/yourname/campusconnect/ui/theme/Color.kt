@@ -16,3 +16,9 @@ val GreenGradientEnd = Color(0xFF50E3C2)
 val WarningBannerColor = Color(0xFFFFCC00)
 val DarkBlueStart = Color(0xFF0A192F)
 val LighterBlueEnd = Color(0xFF173A5E)
+
+
+
+
+
+
