@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "497175601651",
+    "project_id": "myowe001",
+    "storage_bucket": "myowe001.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:497175601651:android:73ed69f21738375c70f286",
+        "android_client_info": {
+          "package_name": "com.yourname.campusconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzQxN7i8XymYef2bOjiEHD10oiOcpi9kg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
