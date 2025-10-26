@@ -11,13 +11,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.yourname.campusconnect.auth.SplashViewModel
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
 import com.yourname.campusconnect.ui.theme.GreenGradientEnd
-
-
 
 @Composable
 fun SplashScreen(
@@ -43,9 +42,7 @@ fun SplashScreen(
                     popUpTo("splash") { inclusive = true }
                 }
             }
-            SplashViewModel.UserStatus.Loading -> {
-                // Do nothing, just wait for the check to complete
-            }
+            SplashViewModel.UserStatus.Loading -> { }
         }
     }
 
@@ -55,9 +52,6 @@ fun SplashScreen(
             .background(brush = Brush.verticalGradient(colors = listOf(BlueGradientStart, GreenGradientEnd))),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(color = Color.White)
     }
 }
-
-
-

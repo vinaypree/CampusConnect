@@ -29,6 +29,7 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Unauthenticated
     }
 
+
     fun signUp(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -51,6 +52,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -67,9 +69,10 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+
     fun resetState() {
         _authState.value = AuthState.Idle
     }
+
+
 }
-
-
