@@ -112,3 +112,6 @@ fun CompanionCard(user: User) { // The card now accepts a real User object
         }
     }
 }
+
+
+
