@@ -86,6 +86,9 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    //forprofile
+    implementation("com.google.firebase:firebase-storage-ktx")
+    // Add this line inside the dependencies { ... } block
+//    implementation("io.coil-kt:coil-compose:2.5.0") // Check for the latest version
 }
-
-
