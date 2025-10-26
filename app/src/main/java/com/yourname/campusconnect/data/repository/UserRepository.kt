@@ -4,11 +4,25 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.yourname.campusconnect.data.models.User
 import kotlinx.coroutines.tasks.await
+import kotlin.Result
 
 class UserRepository {
     private val db = FirebaseFirestore.getInstance()
     private val usersCollection = db.collection("users")
     private val auth = FirebaseAuth.getInstance()
+
+    suspend fun getAllUsers(): Result<List<User>> {
+        return try {
+            val currentUserId = auth.currentUser?.uid
+            val snapshot = usersCollection.get().await()
+            val users = snapshot.toObjects(User::class.java)
+            // Filter out the current user so they don't see themselves in the list
+            val otherUsers = users.filter { it.uid != currentUserId }
+            Result.success(otherUsers)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun createUserProfile(user: User): Result<Unit> {
         return try {
