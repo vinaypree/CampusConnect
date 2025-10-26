@@ -13,5 +13,3 @@ data class User(
     val skillsWantToLearn: List<String> = emptyList(),
     val interests: List<String> = emptyList()
 )
-
-

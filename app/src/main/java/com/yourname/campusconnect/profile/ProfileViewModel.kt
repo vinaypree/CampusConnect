@@ -45,6 +45,10 @@ class ProfileViewModel : ViewModel() {
                 _profileState.value = ProfileState.Error("Please fill in all required fields.")
                 return@launch
             }
+            if (skillsToTeach.isEmpty() && interests.isEmpty()) {
+                _profileState.value = ProfileState.Error("Please add at least one skill or interest.")
+                return@launch
+            }
             val currentUser = auth.currentUser ?: run {
                 _profileState.value = ProfileState.Error("User not logged in.")
                 return@launch
@@ -58,7 +62,3 @@ class ProfileViewModel : ViewModel() {
         }
     }
 }
-
-
-
-
