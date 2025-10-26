@@ -41,11 +41,15 @@ fun MainScreen(mainNavController: NavController) {
             BottomNavigationBar(navController = bottomNavController, mainNavController = mainNavController)
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { /* TODO: Navigate to Create Post Screen */ },
-                containerColor = BlueGradientStart
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Post", tint = Color.White)
+            val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route
+            if (currentRoute == "home") {
+                FloatingActionButton(
+                    onClick = { mainNavController.navigate("create_post") },
+                    containerColor = BlueGradientStart
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Post", tint = Color.White)
+                }
             }
         },
         modifier = Modifier.background(gradientBrush)
@@ -59,10 +63,21 @@ fun MainScreen(mainNavController: NavController) {
                 FeedScreen()
             }
             composable("matches") {
-                PlaceholderScreen(text = "Matches Screen")
+                MatchingHubScreen(
+                    onNavigateToSkillSwap = { bottomNavController.navigate("skill_swap") },
+                    onNavigateToCompanion = { bottomNavController.navigate("companion") }
+                )
             }
             composable("chat") {
                 PlaceholderScreen(text = "Chat Screen")
+            }
+            composable("skill_swap") {
+                SkillSwapScreen()
+            }
+            // --- THIS IS THE FIX ---
+            // Replaced the placeholder with your new, real screen
+            composable("companion") {
+                CompanionScreen()
             }
         }
     }
@@ -111,3 +126,6 @@ fun BottomNavigationBar(navController: NavController, mainNavController: NavCont
 }
 
 data class NavigationItem(val title: String, val route: String, val icon: ImageVector)
+
+
+

@@ -43,9 +43,7 @@ fun AppNavigation() {
         composable("login") {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate("splash") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    navController.navigate("splash") { popUpTo("login") { inclusive = true } }
                 },
                 onNavigateToSignUp = { navController.navigate("signup") },
                 onForgotPassword = {}
@@ -54,9 +52,7 @@ fun AppNavigation() {
         composable("signup") {
             SignUpScreen(
                 onSignUpSuccess = {
-                    navController.navigate("profile") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    navController.navigate("profile") { popUpTo("login") { inclusive = true } }
                 },
                 onNavigateToLogin = { navController.popBackStack() }
             )
@@ -80,5 +76,17 @@ fun AppNavigation() {
         composable("dashboard") {
             MainScreen(mainNavController = navController)
         }
+
+        // --- THIS IS THE FIX ---
+        // This line was missing, which caused the crash.
+        composable("create_post") {
+            CreatePostScreen(
+                onPostCreated = {
+                    navController.popBackStack()
+                }
+            )
+        }
     }
 }
+
+
