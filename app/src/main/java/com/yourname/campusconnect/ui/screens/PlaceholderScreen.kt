@@ -1,5 +1,3 @@
-// in ui/screens/PlaceholderScreen.kt
-
 package com.yourname.campusconnect.ui.screens
 
 import androidx.compose.foundation.layout.Box
@@ -16,9 +14,6 @@ fun PlaceholderScreen(text: String) {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = text, color = Color.Gray) // Changed color to Gray to be visible on light theme
+        Text(text = text, color = Color.White)
     }
 }
-
-
-

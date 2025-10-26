@@ -16,10 +16,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-// Add these color definitions at the top of your FeedScreen.kt file
-
-private val LighterBlueEnd = Color(0xFF173A5E)
-private val BlueGradientStart = Color(0xFF4A90E2)
+import com.yourname.campusconnect.ui.theme.BlueGradientStart
+import com.yourname.campusconnect.ui.theme.LighterBlueEnd
 
 @Composable
 fun FeedScreen() {
@@ -28,13 +26,12 @@ fun FeedScreen() {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Placeholder Post Cards
         item {
             PostCard(
                 authorName = "Ananya Singh",
                 authorInfo = "B-Tech EE, 2nd Year",
                 postText = "Excited for our AI final project!",
-                isFriendsOnly = false // This will now show "Public"
+                isFriendsOnly = false
             )
         }
         item {
@@ -42,7 +39,7 @@ fun FeedScreen() {
                 authorName = "Arjun Reddy",
                 authorInfo = "B-Tech CSE, 2nd Year",
                 postText = "Anyone up for a game of football this evening?",
-                isFriendsOnly = true // This will show "Friends Only"
+                isFriendsOnly = true
             )
         }
     }
@@ -63,7 +60,8 @@ fun PostCard(authorName: String, authorInfo: String, postText: String, isFriends
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -71,9 +69,6 @@ fun PostCard(authorName: String, authorInfo: String, postText: String, isFriends
                     Text(text = authorInfo, fontSize = 12.sp, color = Color.LightGray)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-
-                // --- THIS IS THE FIX ---
-                // Now shows a tag for both "Public" and "Friends Only"
                 val visibilityText = if (isFriendsOnly) "Friends Only" else "Public"
                 Text(visibilityText, fontSize = 10.sp, color = Color.LightGray)
             }
@@ -81,25 +76,21 @@ fun PostCard(authorName: String, authorInfo: String, postText: String, isFriends
             Text(text = postText, fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                // --- SMALLER BUTTONS ---
                 Button(
                     onClick = { /* Handle Like */ },
                     colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart.copy(alpha = 0.6f)),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp) // Smaller padding
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Like", fontSize = 12.sp) // Smaller font size
+                    Text("Like", fontSize = 12.sp)
                 }
                 Button(
                     onClick = { /* Handle Comment */ },
                     colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart.copy(alpha = 0.6f)),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp) // Smaller padding
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Comment", fontSize = 12.sp) // Smaller font size
+                    Text("Comment", fontSize = 12.sp)
                 }
             }
         }
     }
 }
-
-
