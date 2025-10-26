@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.yourname.campusconnect.data.repository.UserRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -28,8 +29,7 @@ class SplashViewModel : ViewModel() {
 
     private fun checkUserStatus() {
         viewModelScope.launch {
-            // A small delay to prevent a jarringly fast screen flicker
-            kotlinx.coroutines.delay(500)
+            delay(500)
 
             val currentUser = auth.currentUser
             if (currentUser == null) {
@@ -44,6 +44,3 @@ class SplashViewModel : ViewModel() {
         }
     }
 }
-
-
-
