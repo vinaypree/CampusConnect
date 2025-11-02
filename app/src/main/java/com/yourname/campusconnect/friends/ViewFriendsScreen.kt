@@ -58,3 +58,5 @@ fun ViewFriendsScreen(viewModel: FriendsViewModel = viewModel()) {
         }
     }
 }
+
+
