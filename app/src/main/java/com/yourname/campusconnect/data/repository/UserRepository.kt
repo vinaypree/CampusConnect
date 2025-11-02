@@ -169,6 +169,7 @@ class UserRepository {
             val friendships = snapshot.toObjects(Friendship::class.java)
                 .filter { it.fromUserId == currentUserId || it.toUserId == currentUserId }
 
+
             val friendIds = friendships.map {
                 if (it.fromUserId == currentUserId) it.toUserId else it.fromUserId
             }.distinct()
