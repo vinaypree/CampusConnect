@@ -72,3 +72,10 @@ class ChatViewModel : ViewModel() {
         _messages.value = _messages.value + newMessage
     }
 }
+
+
+
+
+
+
+
