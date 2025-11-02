@@ -11,5 +11,6 @@ data class User(
     val profilePhotoUrl: String = "",
     val skillsCanTeach: List<String> = emptyList(),
     val skillsWantToLearn: List<String> = emptyList(),
-    val interests: List<String> = emptyList()
+    val interests: List<String> = emptyList(),
+    val friends: List<String> = emptyList() // Lis
 )

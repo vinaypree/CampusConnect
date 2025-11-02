@@ -89,6 +89,12 @@ dependencies {
 
     //forprofile
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("androidx.compose.material3:material3:1.3.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
+
     // Add this line inside the dependencies { ... } block
 //    implementation("io.coil-kt:coil-compose:2.5.0") // Check for the latest version
 }

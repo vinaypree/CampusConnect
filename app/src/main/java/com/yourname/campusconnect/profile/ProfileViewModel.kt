@@ -38,6 +38,7 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
+    // The imageUri parameter has been REMOVED from this function
     fun saveProfile(name: String, department: String, year: Int, bio: String, phone: String, skillsToTeach: List<String>, skillsToLearn: List<String>, interests: List<String>) {
         viewModelScope.launch {
             _profileState.value = ProfileState.Loading
@@ -45,15 +46,13 @@ class ProfileViewModel : ViewModel() {
                 _profileState.value = ProfileState.Error("Please fill in all required fields.")
                 return@launch
             }
-            if (skillsToTeach.isEmpty() && interests.isEmpty()) {
-                _profileState.value = ProfileState.Error("Please add at least one skill or interest.")
-                return@launch
-            }
             val currentUser = auth.currentUser ?: run {
                 _profileState.value = ProfileState.Error("User not logged in.")
                 return@launch
             }
+            // We create the user object without the profilePhotoUrl
             val userProfile = User(uid = currentUser.uid, name = name, email = currentUser.email ?: "", department = department, year = year, bio = bio, phone = phone, skillsCanTeach = skillsToTeach, skillsWantToLearn = skillsToLearn, interests = interests)
+
             userRepository.createUserProfile(userProfile).onSuccess {
                 _profileState.value = ProfileState.Success
             }.onFailure {

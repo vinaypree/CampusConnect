@@ -8,9 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,46 +18,100 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.yourname.campusconnect.data.models.User
 import com.yourname.campusconnect.matching.MatchingViewModel
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
+import com.yourname.campusconnect.ui.theme.DarkBlueStart
 import com.yourname.campusconnect.ui.theme.LighterBlueEnd
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SkillSwapScreen(
+    navController: NavController? = null, // ✅ Added (optional, safe)
     matchingViewModel: MatchingViewModel = viewModel()
 ) {
     val userListState by matchingViewModel.userListState.collectAsState()
+    val requestState by matchingViewModel.requestState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    // The Scaffold and TopAppBar have been removed.
-    // The screen content now depends on the state from the ViewModel.
-    when (val state = userListState) {
-        is MatchingViewModel.UserListState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
-            }
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Find a Skill Swap", color = Color.White) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart)
+            )
         }
-        is MatchingViewModel.UserListState.Error -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = state.message, color = Color.Red)
-            }
-        }
-        is MatchingViewModel.UserListState.Success -> {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(state.users) { user ->
-                    SkillSwapCard(user = user)
+    ) { paddingValues ->
+        when (val state = userListState) {
+            is MatchingViewModel.UserListState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color.White)
                 }
             }
+
+            is MatchingViewModel.UserListState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = state.message, color = Color.Red)
+                }
+            }
+
+            is MatchingViewModel.UserListState.Success -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(state.users) { user ->
+                        SkillSwapCard(
+                            user = user,
+                            onConnectClicked = {
+                                matchingViewModel.sendFriendRequest(user.uid)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(requestState) {
+        when (val state = requestState) {
+            is MatchingViewModel.RequestState.Sent -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Friend request sent!")
+                }
+                matchingViewModel.resetRequestState()
+            }
+
+            is MatchingViewModel.RequestState.Error -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(state.message)
+                }
+                matchingViewModel.resetRequestState()
+            }
+
+            else -> {}
         }
     }
 }
 
 @Composable
-fun SkillSwapCard(user: User) {
+fun SkillSwapCard(
+    user: User,
+    onConnectClicked: () -> Unit
+) {
+    var requestSent by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = LighterBlueEnd),
@@ -81,23 +133,23 @@ fun SkillSwapCard(user: User) {
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-
             Text("Teaches: ${user.skillsCanTeach.joinToString(", ")}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
             Spacer(modifier = Modifier.height(4.dp))
             Text("Wants to Learn: ${user.skillsWantToLearn.joinToString(", ")}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Button(
-                onClick = { /* TODO: Handle connect logic */ },
+                onClick = {
+                    onConnectClicked()
+                    requestSent = true
+                },
                 modifier = Modifier.align(Alignment.End),
-                colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart)
+                enabled = !requestSent,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (requestSent) Color.Gray else BlueGradientStart
+                )
             ) {
-                Text("Connect")
+                Text(if (requestSent) "Request Sent" else "Connect")
             }
         }
     }
 }
-
-
-

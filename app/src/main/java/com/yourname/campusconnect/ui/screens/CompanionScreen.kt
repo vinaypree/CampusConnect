@@ -8,9 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,21 +18,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.yourname.campusconnect.data.models.User // Import the real User model
+import androidx.navigation.NavController
+import com.yourname.campusconnect.data.models.User
 import com.yourname.campusconnect.matching.MatchingViewModel
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
 import com.yourname.campusconnect.ui.theme.DarkBlueStart
 import com.yourname.campusconnect.ui.theme.LighterBlueEnd
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompanionScreen(
-    // We now get the same ViewModel as the SkillSwapScreen
+    navController: NavController? = null, // ✅ Added optional
     matchingViewModel: MatchingViewModel = viewModel()
 ) {
     val userListState by matchingViewModel.userListState.collectAsState()
+    val requestState by matchingViewModel.requestState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Find a Companion", color = Color.White) },
@@ -48,31 +52,60 @@ fun CompanionScreen(
                     CircularProgressIndicator(color = Color.White)
                 }
             }
+
             is MatchingViewModel.UserListState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     Text(text = state.message, color = Color.Red)
                 }
             }
+
             is MatchingViewModel.UserListState.Success -> {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // We use the real user list from the state
                     items(state.users) { user ->
-                        CompanionCard(user = user)
+                        CompanionCard(
+                            user = user,
+                            onConnectClicked = {
+                                matchingViewModel.sendFriendRequest(user.uid)
+                            }
+                        )
                     }
                 }
             }
         }
     }
+
+    LaunchedEffect(requestState) {
+        when (val state = requestState) {
+            is MatchingViewModel.RequestState.Sent -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Friend request sent!")
+                }
+                matchingViewModel.resetRequestState()
+            }
+
+            is MatchingViewModel.RequestState.Error -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(state.message)
+                }
+                matchingViewModel.resetRequestState()
+            }
+
+            else -> {}
+        }
+    }
 }
 
 @Composable
-fun CompanionCard(user: User) { // The card now accepts a real User object
+fun CompanionCard(
+    user: User,
+    onConnectClicked: () -> Unit
+) {
+    var requestSent by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = LighterBlueEnd),
@@ -83,9 +116,7 @@ fun CompanionCard(user: User) { // The card now accepts a real User object
                 Image(
                     imageVector = Icons.Default.Person,
                     contentDescription = "Profile Picture",
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape),
+                    modifier = Modifier.size(56.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop,
                     colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
                 )
@@ -96,22 +127,21 @@ fun CompanionCard(user: User) { // The card now accepts a real User object
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Interests Section, using the real interests list
             Text("Interests: ${user.interests.joinToString(", ")}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Button(
-                onClick = { /* TODO: Handle connect logic */ },
+                onClick = {
+                    onConnectClicked()
+                    requestSent = true
+                },
                 modifier = Modifier.align(Alignment.End),
-                colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart)
+                enabled = !requestSent,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (requestSent) Color.Gray else BlueGradientStart
+                )
             ) {
-                Text("Connect")
+                Text(if (requestSent) "Request Sent" else "Connect")
             }
         }
     }
 }
-
-
-

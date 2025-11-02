@@ -45,6 +45,7 @@ fun ProfileScreen(
     var skillsToLearn by remember { mutableStateOf("") }
     var interests by remember { mutableStateOf("") }
 
+    // Load user data into fields
     LaunchedEffect(userProfile) {
         userProfile?.let {
             name = it.name
@@ -63,7 +64,7 @@ fun ProfileScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val gradientBrush = remember {
-        Brush.verticalGradient(colors = listOf(BlueGradientStart, GreenGradientEnd))
+        Brush.verticalGradient(listOf(BlueGradientStart, GreenGradientEnd))
     }
 
     Scaffold(
@@ -76,7 +77,11 @@ fun ProfileScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
                     IconButton(onClick = { authViewModel.logout() }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.White)
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout",
+                            tint = Color.White
+                        )
                     }
                 }
             )
@@ -90,8 +95,9 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // --- Profile Picture Placeholder ---
             Button(
-                onClick = { /* TODO: Implement image picker */ },
+                onClick = { /* No image picker yet */ },
                 shape = CircleShape,
                 modifier = Modifier.size(100.dp),
                 contentPadding = PaddingValues(0.dp)
@@ -102,32 +108,101 @@ fun ProfileScreen(
                     modifier = Modifier.size(40.dp)
                 )
             }
-            Text("Add Photo", color = Color.White.copy(alpha = 0.8f), modifier = Modifier.padding(top = 8.dp))
-            Spacer(modifier = Modifier.height(24.dp))
-
-            val textFieldColors = TextFieldDefaults.outlinedTextFieldColors(
-                focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White,
-                focusedBorderColor = Color.White, unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                focusedLabelColor = Color.White, unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+            Text(
+                "Add Photo",
+                color = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 8.dp)
             )
 
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+            Spacer(modifier = Modifier.height(24.dp))
+
+            val textFieldColors = TextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Color.White,
+                focusedIndicatorColor = Color.White,
+                unfocusedIndicatorColor = Color.White.copy(alpha = 0.5f),
+                focusedLabelColor = Color.White,
+                unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
+            )
+
+            // --- Text Fields ---
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Full Name") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = department, onValueChange = { department = it }, label = { Text("Department") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = department,
+                onValueChange = { department = it },
+                label = { Text("Department") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = year, onValueChange = { year = it }, label = { Text("Year of Study") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = year,
+                onValueChange = { year = it },
+                label = { Text("Year of Study") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Short Bio") }, modifier = Modifier.fillMaxWidth(), maxLines = 3, colors = textFieldColors)
+
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it },
+                label = { Text("Short Bio") },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 3,
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone Number") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("Phone Number") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(value = skillsToTeach, onValueChange = { skillsToTeach = it }, label = { Text("Skills you can teach (comma-separated)") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = skillsToTeach,
+                onValueChange = { skillsToTeach = it },
+                label = { Text("Skills you can teach (comma-separated)") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = skillsToLearn, onValueChange = { skillsToLearn = it }, label = { Text("Skills you want to learn (comma-separated)") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = skillsToLearn,
+                onValueChange = { skillsToLearn = it },
+                label = { Text("Skills you want to learn (comma-separated)") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = interests, onValueChange = { interests = it }, label = { Text("Your Interests (comma-separated)") }, modifier = Modifier.fillMaxWidth(), colors = textFieldColors)
+
+            OutlinedTextField(
+                value = interests,
+                onValueChange = { interests = it },
+                label = { Text("Your Interests (comma-separated)") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors
+            )
             Spacer(modifier = Modifier.height(32.dp))
 
+            // --- Save Button ---
             Button(
                 onClick = {
                     val yearInt = year.toIntOrNull() ?: 0
@@ -135,7 +210,16 @@ fun ProfileScreen(
                     val skillsLearnList = skillsToLearn.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                     val interestsList = interests.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-                    profileViewModel.saveProfile(name = name, department = department, year = yearInt, bio = bio, phone = phone, skillsToTeach = skillsTeachList, skillsToLearn = skillsLearnList, interests = interestsList)
+                    profileViewModel.saveProfile(
+                        name = name,
+                        department = department,
+                        year = yearInt,
+                        bio = bio,
+                        phone = phone,
+                        skillsToTeach = skillsTeachList,
+                        skillsToLearn = skillsLearnList,
+                        interests = interestsList
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -148,21 +232,32 @@ fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            brush = Brush.horizontalGradient(colors = listOf(BlueGradientStart, GreenGradientEnd)),
+                            brush = Brush.horizontalGradient(
+                                listOf(BlueGradientStart, GreenGradientEnd)
+                            ),
                             shape = RoundedCornerShape(25.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (profileState is ProfileViewModel.ProfileState.Loading) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     } else {
-                        Text("Save Profile", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Save Profile",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
     }
 
+    // --- Snackbar + Logout Handlers ---
     LaunchedEffect(profileState) {
         when (val state = profileState) {
             is ProfileViewModel.ProfileState.Success -> {
@@ -172,7 +267,7 @@ fun ProfileScreen(
             is ProfileViewModel.ProfileState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
             }
-            else -> {}
+            else -> Unit
         }
     }
 

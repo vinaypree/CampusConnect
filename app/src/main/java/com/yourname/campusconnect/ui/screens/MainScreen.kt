@@ -3,6 +3,7 @@ package com.yourname.campusconnect.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.yourname.campusconnect.chat.ChatListScreen
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
 import com.yourname.campusconnect.ui.theme.DarkBlueStart
 import com.yourname.campusconnect.ui.theme.LighterBlueEnd
@@ -34,11 +36,23 @@ fun MainScreen(mainNavController: NavController) {
         topBar = {
             TopAppBar(
                 title = { Text("CampusConnect", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart),
+                actions = {
+                    IconButton(onClick = { mainNavController.navigate("requests") }) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Friend Requests",
+                            tint = Color.White
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
-            BottomNavigationBar(navController = bottomNavController, mainNavController = mainNavController)
+            BottomNavigationBar(
+                navController = bottomNavController,
+                mainNavController = mainNavController
+            )
         },
         floatingActionButton = {
             val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
@@ -62,22 +76,25 @@ fun MainScreen(mainNavController: NavController) {
             composable("home") {
                 FeedScreen()
             }
-            composable("matches") {
+            // 1. Change the route name here
+            composable("explore") {
                 MatchingHubScreen(
                     onNavigateToSkillSwap = { bottomNavController.navigate("skill_swap") },
-                    onNavigateToCompanion = { bottomNavController.navigate("companion") }
+                    onNavigateToCompanion = { bottomNavController.navigate("companion") },
+                    onNavigateToFriends = { bottomNavController.navigate("friends") }
                 )
             }
             composable("chat") {
-                PlaceholderScreen(text = "Chat Screen")
+                ChatListScreen(navController = mainNavController)
             }
             composable("skill_swap") {
-                SkillSwapScreen()
+                SkillSwapScreen(navController = mainNavController)
             }
-            // --- THIS IS THE FIX ---
-            // Replaced the placeholder with your new, real screen
             composable("companion") {
-                CompanionScreen()
+                CompanionScreen(navController = mainNavController)
+            }
+            composable("friends") {
+                FriendsScreen(navController = mainNavController)
             }
         }
     }
@@ -87,8 +104,9 @@ fun MainScreen(mainNavController: NavController) {
 fun BottomNavigationBar(navController: NavController, mainNavController: NavController) {
     val items = listOf(
         NavigationItem("Home", "home", Icons.Default.Home),
-        NavigationItem("Matches", "matches", Icons.Default.People),
-        NavigationItem("Chat", "chat", Icons.Default.Chat),
+        // 2. Change the title and route here
+        NavigationItem("Explore", "explore", Icons.Default.People),
+        NavigationItem("Chat", "chat", Icons.AutoMirrored.Filled.Chat),
         NavigationItem("Profile", "profile", Icons.Default.Person)
     )
 
@@ -126,6 +144,3 @@ fun BottomNavigationBar(navController: NavController, mainNavController: NavCont
 }
 
 data class NavigationItem(val title: String, val route: String, val icon: ImageVector)
-
-
-
