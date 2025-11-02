@@ -13,4 +13,5 @@ data class Friendship(
     val status: String = "pending", // Can be "pending", "accepted", or "declined"
     // When the request was created
     val createdAt: Timestamp = Timestamp.now()
+
 )

@@ -21,6 +21,7 @@ class FriendsViewModel : ViewModel() {
         fetchFriends()
     }
 
+
     fun fetchFriends() {
         viewModelScope.launch {
             _isLoading.value = true

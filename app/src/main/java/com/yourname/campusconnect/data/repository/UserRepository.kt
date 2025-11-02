@@ -165,6 +165,7 @@ class UserRepository {
                 .get()
                 .await()
 
+
             val friendships = snapshot.toObjects(Friendship::class.java)
                 .filter { it.fromUserId == currentUserId || it.toUserId == currentUserId }
 
