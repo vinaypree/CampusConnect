@@ -3,6 +3,7 @@ package com.campusconnect.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
 
 data class ChatMessage(
@@ -62,12 +63,29 @@ class ChatRepository(
         }.await()
     }
 
-    fun getMessagesLive(chatId: String) =
-        firestore.collection("chats")
+    fun listenForMessages(
+        otherUserId: String,
+        onMessagesChanged: (List<ChatMessage>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration? {
+        val senderId = currentUserId ?: return null
+        val chatId = generateChatId(senderId, otherUserId)
+
+        return firestore.collection("chats")
             .document(chatId)
             .collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
-
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    onError(e)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val messages = snapshot.toObjects(ChatMessage::class.java)
+                    onMessagesChanged(messages)
+                }
+            }
+    }
 
     suspend fun getChatList(): List<ChatSummary> {
         val uid = currentUserId ?: return emptyList()

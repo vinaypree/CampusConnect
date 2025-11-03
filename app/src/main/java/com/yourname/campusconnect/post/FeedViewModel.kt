@@ -2,6 +2,7 @@ package com.yourname.campusconnect.post
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.ListenerRegistration
 import com.yourname.campusconnect.data.models.Post
 import com.yourname.campusconnect.data.repository.PostRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,6 @@ class FeedViewModel : ViewModel() {
 
     private val postRepository = PostRepository()
 
-    // Represents the state of the feed
     sealed class FeedState {
         object Loading : FeedState()
         data class Success(val posts: List<Post>) : FeedState()
@@ -22,9 +22,21 @@ class FeedViewModel : ViewModel() {
     private val _feedState = MutableStateFlow<FeedState>(FeedState.Loading)
     val feedState: StateFlow<FeedState> = _feedState
 
-    // When the ViewModel is created, it will automatically fetch the posts
+    private var listenerRegistration: ListenerRegistration? = null
+
     init {
-        fetchPosts()
+        startListeningToPosts()
+    }
+
+    private fun startListeningToPosts() {
+        listenerRegistration = postRepository.listenToPosts(
+            onPostsChanged = { posts ->
+                _feedState.value = FeedState.Success(posts)
+            },
+            onError = { e ->
+                _feedState.value = FeedState.Error(e.message ?: "Error loading feed")
+            }
+        )
     }
 
     fun fetchPosts() {
@@ -38,9 +50,9 @@ class FeedViewModel : ViewModel() {
             }
         }
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        listenerRegistration?.remove()
+    }
 }
-
-
-
-
-

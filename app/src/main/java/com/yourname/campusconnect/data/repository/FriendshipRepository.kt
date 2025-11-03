@@ -17,7 +17,6 @@ class FriendshipRepository(
     suspend fun sendFriendRequest(toUserId: String): Boolean {
         val currentUser = auth.currentUser ?: return false
 
-
         // Construct friendship object
         val friendship = Friendship(
             fromUserId = currentUser.uid,

@@ -13,11 +13,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
-import com.yourname.campusconnect.ui.screens.*
-import com.yourname.campusconnect.ui.theme.CampusConnectTheme
 import com.yourname.campusconnect.chat.ChatListScreen
 import com.yourname.campusconnect.chat.ChatScreen
 import com.yourname.campusconnect.chat.ChatViewModel
+import com.yourname.campusconnect.ui.screens.*
+import com.yourname.campusconnect.ui.theme.CampusConnectTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,74 +43,48 @@ fun AppNavigation() {
 
     NavHost(navController = navController, startDestination = "splash") {
 
-        // Splash Screen
         composable("splash") { SplashScreen(navController = navController) }
 
-        // Login Screen
         composable("login") {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    navController.navigate("dashboard") { popUpTo("login") { inclusive = true } }
                 },
                 onNavigateToSignUp = { navController.navigate("signup") },
                 onForgotPassword = {}
             )
         }
 
-        // Signup Screen
         composable("signup") {
             SignUpScreen(
                 onSignUpSuccess = {
-                    navController.navigate("profile") {
-                        popUpTo("signup") { inclusive = true }
-                    }
+                    navController.navigate("profile") { popUpTo("signup") { inclusive = true } }
                 },
                 onNavigateToLogin = { navController.popBackStack() }
             )
         }
 
-        // Profile Screen
         composable("profile") {
             ProfileScreen(
                 onProfileSaved = {
-                    navController.navigate("dashboard") {
-                        popUpTo("profile") { inclusive = true }
-                    }
+                    navController.navigate("dashboard") { popUpTo("profile") { inclusive = true } }
                 },
                 onLogout = {
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
-                    }
+                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
                 }
             )
         }
 
-        // Dashboard Screen
-        composable("dashboard") {
-            MainScreen(mainNavController = navController)
-        }
+        composable("dashboard") { MainScreen(mainNavController = navController) }
 
-        // Create Post Screen
-        composable("create_post") {
-            CreatePostScreen(onPostCreated = { navController.popBackStack() })
-        }
+        composable("create_post") { CreatePostScreen(onPostCreated = { navController.popBackStack() }) }
 
-        // Friend Requests Screen
-        composable("requests") {
-            RequestsScreen()
-        }
+        composable("requests") { RequestsScreen() }
 
-        // ✅ Chat List Screen — uses navController instead of callback
         composable("chat") {
-            ChatListScreen(
-                navController = navController,
-                currentUserId = currentUserId
-            )
+            ChatListScreen(navController = navController, currentUserId = currentUserId)
         }
 
-        // ✅ Chat Detail Screen — expects receiverId and receiverName
         composable("chatDetail/{receiverId}/{receiverName}") { backStackEntry ->
             val receiverId = backStackEntry.arguments?.getString("receiverId") ?: ""
             val receiverName = backStackEntry.arguments?.getString("receiverName") ?: "Chat"

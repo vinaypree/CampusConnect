@@ -12,17 +12,15 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatListScreen(
     navController: NavController,
-    currentUserId: String = FirebaseAuth.getInstance().currentUser?.uid ?: "",
+    currentUserId: String = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 ) {
     val firestore = FirebaseFirestore.getInstance()
     var friends by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
-    // Fetch accepted friends
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             val fromFriends = firestore.collection("friendships")
@@ -52,9 +50,7 @@ fun ChatListScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Chats") })
-        }
+        topBar = { TopAppBar(title = { Text("Chats") }) }
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding)) {
             items(friends.size) { index ->
@@ -64,7 +60,6 @@ fun ChatListScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            // Navigate to Chat Detail Screen
                             navController.navigate("chatDetail/$friendId/$friendName")
                         }
                         .padding(vertical = 8.dp, horizontal = 16.dp)
