@@ -3,6 +3,8 @@ package com.yourname.campusconnect.post
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ListenerRegistration
 import com.yourname.campusconnect.data.models.Post
 import com.yourname.campusconnect.data.repository.PostRepository
 import com.yourname.campusconnect.data.repository.UserRepository
@@ -15,7 +17,6 @@ class PostViewModel : ViewModel() {
     private val postRepository = PostRepository()
     private val userRepository = UserRepository()
 
-    // Represents the state of the post creation process
     sealed class PostState {
         object Idle : PostState()
         object Loading : PostState()
@@ -26,38 +27,42 @@ class PostViewModel : ViewModel() {
     private val _postState = MutableStateFlow<PostState>(PostState.Idle)
     val postState: StateFlow<PostState> = _postState
 
-    // in post/PostViewModel.kt
+    private val _posts = MutableStateFlow<List<Post>>(emptyList())
+    val posts: StateFlow<List<Post>> = _posts
 
+    private var postListener: ListenerRegistration? = null
+
+    init {
+        listenToPosts()
+    }
+
+    // 🔹 Firestore live listener — keeps comment counts fresh
+    private fun listenToPosts() {
+        postListener?.remove()
+        postListener = postRepository.listenToPosts(
+            onPostsChanged = { posts ->
+                _posts.value = posts
+            },
+            onError = { e ->
+                _postState.value = PostState.Error(e.message ?: "Failed to fetch posts")
+            }
+        )
+    }
+
+    // 🔹 Create post
     fun createPost(content: String, visibility: String) {
         viewModelScope.launch {
             _postState.value = PostState.Loading
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            val user = userRepository.getUserProfile(uid).getOrNull() ?: return@launch
 
             if (content.isBlank()) {
-                _postState.value = PostState.Error("Post content cannot be empty.")
+                _postState.value = PostState.Error("Post cannot be empty")
                 return@launch
             }
 
-            // --- THIS IS THE CORRECTED PART ---
-
-            // 1. Get the current user's ID
-            val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-            if (uid == null) {
-                _postState.value = PostState.Error("You must be logged in to post.")
-                return@launch
-            }
-
-            // 2. Safely fetch the user's profile
-            val userResult = userRepository.getUserProfile(uid)
-            val user = userResult.getOrNull()
-
-            if (userResult.isFailure || user == null) {
-                _postState.value = PostState.Error("Could not fetch user profile to create post.")
-                return@launch
-            }
-
-            // 3. Create the Post object (user is now guaranteed to be non-null)
             val newPost = Post(
-                authorId = user.uid,
+                authorId = uid,
                 authorName = user.name,
                 authorDepartment = user.department,
                 authorYear = user.year,
@@ -67,11 +72,44 @@ class PostViewModel : ViewModel() {
             )
 
             val result = postRepository.createPost(newPost)
-            if (result.isSuccess) {
-                _postState.value = PostState.Success
+            _postState.value = if (result.isSuccess) {
+                PostState.Success
             } else {
-                _postState.value = PostState.Error(result.exceptionOrNull()?.message ?: "Failed to create post.")
+                PostState.Error(result.exceptionOrNull()?.message ?: "Failed to post")
             }
         }
+    }
+
+    // 🔹 Add comment (increments count instantly in UI)
+    fun addComment(post: Post, content: String) {
+        viewModelScope.launch {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            val user = userRepository.getUserProfile(uid).getOrNull() ?: return@launch
+
+            val result = postRepository.addComment(post.postId, uid, user.name, content)
+
+//            if (result.isSuccess) {
+//                // 🔹 Instantly update comment count locally
+//                val updatedPosts = _posts.value.map {
+//                    if (it.postId == post.postId)
+//                        it.copy(commentCount = it.commentCount + 1)
+//                    else it
+//                }
+//                _posts.value = updatedPosts
+//            }
+        }
+    }
+
+    // 🔹 Toggle like (auto-updated by Firestore listener)
+    fun likePost(post: Post) {
+        viewModelScope.launch {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            postRepository.toggleLike(post.postId, uid)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        postListener?.remove()
     }
 }

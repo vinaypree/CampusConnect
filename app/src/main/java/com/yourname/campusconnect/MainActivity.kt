@@ -12,8 +12,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.yourname.campusconnect.chat.ChatListScreen
 import com.yourname.campusconnect.chat.ChatScreen
 import com.yourname.campusconnect.chat.ChatViewModel
 import com.yourname.campusconnect.ui.screens.*
@@ -24,10 +22,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             CampusConnectTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AppNavigation()
                 }
             }
@@ -39,12 +34,10 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
     val chatViewModel: ChatViewModel = viewModel()
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     NavHost(navController = navController, startDestination = "splash") {
-
-        composable("splash") { SplashScreen(navController = navController) }
-
+        composable("splash") { SplashScreen(navController) }
         composable("login") {
             LoginScreen(
                 onLoginSuccess = {
@@ -54,7 +47,6 @@ fun AppNavigation() {
                 onForgotPassword = {}
             )
         }
-
         composable("signup") {
             SignUpScreen(
                 onSignUpSuccess = {
@@ -63,7 +55,6 @@ fun AppNavigation() {
                 onNavigateToLogin = { navController.popBackStack() }
             )
         }
-
         composable("profile") {
             ProfileScreen(
                 onProfileSaved = {
@@ -78,20 +69,14 @@ fun AppNavigation() {
         composable("dashboard") { MainScreen(mainNavController = navController) }
 
         composable("create_post") { CreatePostScreen(onPostCreated = { navController.popBackStack() }) }
-
         composable("requests") { RequestsScreen() }
 
-        composable("chat") {
-            ChatListScreen(navController = navController, currentUserId = currentUserId)
-        }
-
+        // ✅ Chat detail route with both parameters
         composable("chatDetail/{receiverId}/{receiverName}") { backStackEntry ->
             val receiverId = backStackEntry.arguments?.getString("receiverId") ?: ""
             val receiverName = backStackEntry.arguments?.getString("receiverName") ?: "Chat"
 
             ChatScreen(
-                navController = navController,
-                currentUserId = currentUserId,
                 receiverId = receiverId,
                 receiverName = receiverName,
                 chatViewModel = chatViewModel,

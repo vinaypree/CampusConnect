@@ -63,12 +63,12 @@ fun FriendsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 6.dp)
-                                    .clickable {
-                                        // Navigate to ChatScreen when clicking a friend
-                                        navController.navigate(
-                                            "chat/${friend.uid}/${friend.name}"
-                                        )
-                                    }
+//                                    .clickable {
+//                                        // Navigate to ChatScreen when clicking a friend
+//                                        navController.navigate(
+//                                            "chat/${friend.uid}/${friend.name}"
+//                                        )
+//                                    }
                             ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp)
@@ -90,7 +90,3 @@ fun FriendsScreen(
         }
     }
 }
-
-
-
-

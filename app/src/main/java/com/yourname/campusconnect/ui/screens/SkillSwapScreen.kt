@@ -1,12 +1,15 @@
 package com.yourname.campusconnect.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,21 +33,64 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SkillSwapScreen(
-    navController: NavController? = null, // ✅ Added (optional, safe)
+    navController: NavController? = null,
     matchingViewModel: MatchingViewModel = viewModel()
 ) {
     val userListState by matchingViewModel.userListState.collectAsState()
     val requestState by matchingViewModel.requestState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Find a Skill Swap", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart)
-            )
+            Column(
+                modifier = Modifier
+                    .background(DarkBlueStart)
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+            ) {
+                // ✅ Removed unwanted space
+                TopAppBar(
+                    title = { Text("Find a Skill Swap", color = Color.White) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart)
+                )
+
+                // 🔍 Search Bar
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.White.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color.White
+                            )
+                        },
+                        placeholder = { /* removed text */ },
+                        colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color.White,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     ) { paddingValues ->
         when (val state = userListState) {
@@ -66,12 +113,16 @@ fun SkillSwapScreen(
             }
 
             is MatchingViewModel.UserListState.Success -> {
+                val filteredUsers = state.users.filter {
+                    it.name.contains(searchQuery.text, ignoreCase = true)
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(state.users) { user ->
+                    items(filteredUsers) { user ->
                         SkillSwapCard(
                             user = user,
                             onConnectClicked = {
@@ -136,19 +187,22 @@ fun SkillSwapCard(
             Text("Teaches: ${user.skillsCanTeach.joinToString(", ")}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
             Spacer(modifier = Modifier.height(4.dp))
             Text("Wants to Learn: ${user.skillsWantToLearn.joinToString(", ")}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    onConnectClicked()
-                    requestSent = true
-                },
-                modifier = Modifier.align(Alignment.End),
-                enabled = !requestSent,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (requestSent) Color.Gray else BlueGradientStart
-                )
-            ) {
-                Text(if (requestSent) "Request Sent" else "Connect")
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ✅ Button right-aligned cleanly
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(
+                    onClick = {
+                        onConnectClicked()
+                        requestSent = true
+                    },
+                    enabled = !requestSent,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (requestSent) Color.Gray else BlueGradientStart
+                    )
+                ) {
+                    Text(if (requestSent) "Request Sent" else "Connect")
+                }
             }
         }
     }

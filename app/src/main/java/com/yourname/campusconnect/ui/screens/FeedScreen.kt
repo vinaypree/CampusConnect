@@ -3,27 +3,31 @@ package com.yourname.campusconnect.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items // Make sure to import this
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.yourname.campusconnect.data.models.Post // Import your Post model
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.yourname.campusconnect.data.models.Post
 import com.yourname.campusconnect.post.FeedViewModel
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
 import com.yourname.campusconnect.ui.theme.LighterBlueEnd
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun FeedScreen(
@@ -37,11 +41,13 @@ fun FeedScreen(
                 CircularProgressIndicator(color = Color.White)
             }
         }
+
         is FeedViewModel.FeedState.Error -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text = state.message, color = Color.Red)
             }
         }
+
         is FeedViewModel.FeedState.Success -> {
             if (state.posts.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -54,7 +60,10 @@ fun FeedScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(state.posts) { post ->
-                        PostCard(post = post)
+                        PostCard(
+                            post = post,
+                            onLikeClick = { feedViewModel.likePost(post) },
+                        )
                     }
                 }
             }
@@ -63,13 +72,26 @@ fun FeedScreen(
 }
 
 @Composable
-fun PostCard(post: Post) {
+fun PostCard(
+    post: Post,
+    onLikeClick: () -> Unit,
+) {
+    var showComments by remember { mutableStateOf(false) }
+    var comments by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var commentText by remember { mutableStateOf(TextFieldValue("")) }
+
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val coroutineScope = rememberCoroutineScope()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = LighterBlueEnd),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+
+            // --- Header ---
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
                     imageVector = Icons.Default.Person,
@@ -82,35 +104,141 @@ fun PostCard(post: Post) {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(text = post.authorName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-                    Text(text = "${post.authorDepartment}, ${post.authorYear} Year", fontSize = 12.sp, color = Color.LightGray)
+                    Text(
+                        text = post.authorName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "${post.authorDepartment}, ${post.authorYear} Year",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(post.visibility, fontSize = 10.sp, color = Color.LightGray)
             }
+
             Spacer(modifier = Modifier.height(12.dp))
             Text(text = post.content, fontSize = 14.sp, color = Color.White.copy(alpha = 0.9f))
             Spacer(modifier = Modifier.height(16.dp))
+
+            // --- Like / Comment buttons ---
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { /* TODO: Handle Like */ },
+                    onClick = onLikeClick,
                     colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart.copy(alpha = 0.6f)),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Like", fontSize = 12.sp)
+                    Text("Like (${post.likes.size})", fontSize = 12.sp)
                 }
+
                 Button(
-                    onClick = { /* TODO: Handle Comment */ },
+                    onClick = { showComments = !showComments },
                     colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart.copy(alpha = 0.6f)),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text("Comment", fontSize = 12.sp)
                 }
             }
+
+            // --- Comment Section ---
+            if (showComments) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 🔹 Live listen for comments
+                LaunchedEffect(post.postId) {
+                    db.collection("posts")
+                        .document(post.postId)
+                        .collection("comments")
+                        .orderBy("timestamp")
+                        .addSnapshotListener { snapshot, _ ->
+                            snapshot?.let {
+                                comments = it.documents.mapNotNull { doc -> doc.data }
+                            }
+                        }
+                }
+
+                // 🔹 Display comments with names
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    comments.forEach { comment ->
+                        val name = comment["commenterName"] as? String ?: "Anonymous"
+                        val text = comment["content"] as? String ?: ""
+                        Text(
+                            text = "$name: $text",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 🔹 Input field to add comment
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicTextField(
+                        value = commentText,
+                        onValueChange = { commentText = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .padding(8.dp),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(4.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (commentText.text.isEmpty()) {
+                                    Text(
+                                        "Write a comment...",
+                                        color = Color.Gray,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+
+                    Button(
+                        onClick = {
+                            val text = commentText.text.trim()
+                            if (text.isNotEmpty()) {
+                                val uid = currentUser?.uid ?: return@Button
+                                val usersRef = db.collection("users").document(uid)
+
+                                coroutineScope.launch {
+                                    try {
+                                        val snapshot = usersRef.get().await()
+                                        val name = snapshot.getString("name") ?: "Anonymous"
+
+                                        db.collection("posts")
+                                            .document(post.postId)
+                                            .collection("comments")
+                                            .add(
+                                                mapOf(
+                                                    "commenterId" to uid,
+                                                    "commenterName" to name,
+                                                    "content" to text,
+                                                    "timestamp" to com.google.firebase.Timestamp.now()
+                                                )
+                                            )
+                                        commentText = TextFieldValue("")
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BlueGradientStart)
+                    ) {
+                        Text("Post", fontSize = 12.sp)
+                    }
+                }
+            }
         }
     }
 }
-
-
-
-

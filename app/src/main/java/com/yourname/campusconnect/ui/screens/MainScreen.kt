@@ -1,14 +1,13 @@
 package com.yourname.campusconnect.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -18,7 +17,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.yourname.campusconnect.chat.ChatListScreen
+import com.yourname.campusconnect.chat.ChatViewModel
 import com.yourname.campusconnect.ui.theme.BlueGradientStart
 import com.yourname.campusconnect.ui.theme.DarkBlueStart
 import com.yourname.campusconnect.ui.theme.LighterBlueEnd
@@ -27,7 +29,6 @@ import com.yourname.campusconnect.ui.theme.LighterBlueEnd
 @Composable
 fun MainScreen(mainNavController: NavController) {
     val bottomNavController = rememberNavController()
-
     val gradientBrush = remember {
         Brush.verticalGradient(colors = listOf(DarkBlueStart, LighterBlueEnd))
     }
@@ -40,8 +41,8 @@ fun MainScreen(mainNavController: NavController) {
                 actions = {
                     IconButton(onClick = { mainNavController.navigate("requests") }) {
                         Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Friend Requests",
+                            Icons.Default.Notifications,
+                            contentDescription = "Requests",
                             tint = Color.White
                         )
                     }
@@ -49,10 +50,7 @@ fun MainScreen(mainNavController: NavController) {
             )
         },
         bottomBar = {
-            BottomNavigationBar(
-                navController = bottomNavController,
-                mainNavController = mainNavController
-            )
+            BottomNavigationBar(bottomNavController, mainNavController)
         },
         floatingActionButton = {
             val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
@@ -62,69 +60,107 @@ fun MainScreen(mainNavController: NavController) {
                     onClick = { mainNavController.navigate("create_post") },
                     containerColor = BlueGradientStart
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Post", tint = Color.White)
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White)
                 }
             }
         },
         modifier = Modifier.background(gradientBrush)
-    ) { innerPadding ->
+    ) { padding ->
         NavHost(
             navController = bottomNavController,
             startDestination = "home",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(padding)
         ) {
-            composable("home") {
-                FeedScreen()
-            }
-            // 1. Change the route name here
-            composable("explore") {
+            composable("home") { FeedScreen() }
+
+            composable("matches") {
                 MatchingHubScreen(
                     onNavigateToSkillSwap = { bottomNavController.navigate("skill_swap") },
                     onNavigateToCompanion = { bottomNavController.navigate("companion") },
                     onNavigateToFriends = { bottomNavController.navigate("friends") }
                 )
             }
+
             composable("chat") {
-                ChatListScreen(navController = mainNavController)
+                val chatViewModel = remember { ChatViewModel() }
+                ChatListScreen(
+                    chatViewModel = chatViewModel,
+                    onChatSelected = { receiverId, receiverName ->
+                        mainNavController.navigate("chatDetail/$receiverId/$receiverName")
+                    }
+                )
             }
-            composable("skill_swap") {
-                SkillSwapScreen(navController = mainNavController)
-            }
-            composable("companion") {
-                CompanionScreen(navController = mainNavController)
-            }
-            composable("friends") {
-                FriendsScreen(navController = mainNavController)
-            }
+
+            composable("skill_swap") { SkillSwapScreen(navController = mainNavController) }
+            composable("companion") { CompanionScreen(navController = mainNavController) }
+            composable("friends") { FriendsScreen(navController = mainNavController) }
         }
     }
 }
 
 @Composable
-fun BottomNavigationBar(navController: NavController, mainNavController: NavController) {
+fun BottomNavigationBar(
+    bottomNavController: NavController,
+    mainNavController: NavController
+) {
+    val firestore = FirebaseFirestore.getInstance()
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var unreadCount by remember { mutableIntStateOf(0) }
+
+    // 🔥 Real-time unread listener for all chats
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            firestore.collectionGroup("messages")
+                .whereArrayContains("unreadBy", currentUserId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) return@addSnapshotListener
+                    unreadCount = snapshot?.size() ?: 0
+                }
+        }
+    }
+
     val items = listOf(
         NavigationItem("Home", "home", Icons.Default.Home),
-        // 2. Change the title and route here
-        NavigationItem("Explore", "explore", Icons.Default.People),
+        NavigationItem("Matches", "matches", Icons.Default.People),
         NavigationItem("Chat", "chat", Icons.AutoMirrored.Filled.Chat),
         NavigationItem("Profile", "profile", Icons.Default.Person)
     )
 
     NavigationBar(containerColor = DarkBlueStart) {
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
         items.forEach { item ->
             NavigationBarItem(
-                icon = { Icon(item.icon, contentDescription = item.title) },
+                icon = {
+                    if (item.route == "chat" && unreadCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = Color.Red,
+                                    contentColor = Color.White
+                                ) {
+                                    Text(
+                                        text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(item.icon, contentDescription = item.title, tint = Color.White)
+                        }
+                    } else {
+                        Icon(item.icon, contentDescription = item.title, tint = Color.White)
+                    }
+                },
                 label = { Text(item.title) },
                 selected = currentRoute == item.route,
                 onClick = {
                     if (item.route == "profile") {
                         mainNavController.navigate(item.route)
                     } else {
-                        navController.navigate(item.route) {
-                            navController.graph.startDestinationRoute?.let { route ->
+                        bottomNavController.navigate(item.route) {
+                            bottomNavController.graph.startDestinationRoute?.let { route ->
                                 popUpTo(route) { saveState = true }
                             }
                             launchSingleTop = true
@@ -142,5 +178,6 @@ fun BottomNavigationBar(navController: NavController, mainNavController: NavCont
         }
     }
 }
+
 
 data class NavigationItem(val title: String, val route: String, val icon: ImageVector)

@@ -1,132 +1,149 @@
 package com.yourname.campusconnect.chat
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.yourname.campusconnect.data.models.Message
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    navController: NavController,
-    currentUserId: String,
     receiverId: String,
     receiverName: String,
-    chatViewModel: ChatViewModel,
+    chatViewModel: ChatViewModel = viewModel(),
     onBack: () -> Unit
 ) {
     val messages by chatViewModel.messages.collectAsState()
-    var inputMessage by remember { mutableStateOf(TextFieldValue("")) }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    val scope = rememberCoroutineScope()
 
+    // ✅ Load messages and mark them as read
     LaunchedEffect(receiverId) {
-        chatViewModel.loadMessages(currentUserId, receiverId)
+        chatViewModel.loadMessages(receiverId)
+        chatViewModel.markMessagesAsRead(receiverId)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(receiverName) },
+                title = { Text(receiverName, color = Color.White) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        // ✅ FIX 1: Changed icon from Send to ArrowBack for better UX
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 }
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF2F2F2))
-                .padding(padding)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(8.dp),
-                reverseLayout = true
-            ) {
-                items(messages.reversed()) { msg ->
-                    MessageBubble(message = msg, isSentByMe = msg.senderId == currentUserId)
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextField(
-                    value = inputMessage,
-                    onValueChange = { inputMessage = it },
-                    placeholder = { Text("Type a message...") },
-                    modifier = Modifier
-                        .weight(1f),
-                    // ✅ FIX 2: Replaced textFieldColors with the new colors function
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        disabledContainerColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    )
-                )
-
-                IconButton(
-                    onClick = {
-                        val text = inputMessage.text.trim()
-                        if (text.isNotEmpty()) {
-                            chatViewModel.sendMessage(currentUserId, receiverId, text)
-                            inputMessage = TextFieldValue("")
-                        }
+        },
+        bottomBar = {
+            MessageInput(
+                onSend = { text ->
+                    scope.launch {
+                        chatViewModel.sendMessage(receiverId, text)
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = "Send",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
                 }
+            )
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            // ✅ Keeps everything above keyboard & nav bar
+            .imePadding()
+            .navigationBarsPadding()
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .imePadding(), // keeps messages above keyboard
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            items(messages) { msg ->
+                MessageBubble(
+                    message = msg.text,
+                    isCurrentUser = msg.senderId == currentUserId
+                )
             }
         }
     }
 }
 
 @Composable
-fun MessageBubble(message: Message, isSentByMe: Boolean) {
-    Row(
+fun MessageInput(onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+
+    Surface(
+        tonalElevation = 4.dp,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .navigationBarsPadding(), // ✅ keeps it above nav bar
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Type a message...") },
+                modifier = Modifier
+                    .weight(1f)
+                    .imePadding(), // ✅ stays above keyboard
+                singleLine = true
+            )
+            IconButton(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onSend(text.trim())
+                        text = ""
+                    }
+                }
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageBubble(message: String, isCurrentUser: Boolean) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = if (isSentByMe) Arrangement.End else Arrangement.Start
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     ) {
-        Box(
-            modifier = Modifier
-                .background(
-                    if (isSentByMe) MaterialTheme.colorScheme.primary else Color.LightGray,
-                    shape = MaterialTheme.shapes.medium
-                )
-                .padding(10.dp)
+        Surface(
+            color = if (isCurrentUser) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 4.dp
         ) {
             Text(
-                text = message.message,
-                color = if (isSentByMe) Color.White else Color.Black
+                text = message,
+                color = if (isCurrentUser) Color.White else Color.Black,
+                modifier = Modifier.padding(10.dp)
             )
         }
     }
