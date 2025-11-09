@@ -23,6 +23,8 @@ class FeedViewModel : ViewModel() {
         data class Error(val message: String) : FeedState()
     }
 
+
+
     private val _feedState = MutableStateFlow<FeedState>(FeedState.Loading)
     val feedState: StateFlow<FeedState> = _feedState
 

@@ -107,6 +107,7 @@ class PostRepository {
                 "content" to content,
                 "timestamp" to Timestamp.now()
             )
+
             val batch = db.batch()
             batch.set(commentRef, commentMap)
             batch.update(postRef, "commentCount", FieldValue.increment(1))
