@@ -53,7 +53,7 @@ fun CompanionScreen(
             ) {
                 // ✅ Removed extra top space
                 TopAppBar(
-                    title = { Text("Find a Companion", color = Color.White) },
+                    title = { Text("Find a Friend", color = Color.White) },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart)
                 )
 

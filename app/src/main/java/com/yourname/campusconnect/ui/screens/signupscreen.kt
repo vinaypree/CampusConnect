@@ -96,7 +96,10 @@ fun SignUpScreen(
                         label = { Text("Campus Email") },
                         leadingIcon = { Icon(Icons.Default.Mail, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -107,7 +110,10 @@ fun SignUpScreen(
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Next
+                        ),
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -118,7 +124,10 @@ fun SignUpScreen(
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(24.dp))
@@ -126,7 +135,9 @@ fun SignUpScreen(
                     Button(
                         onClick = {
                             if (password != confirmPassword) {
-                                scope.launch { snackbarHostState.showSnackbar("Passwords do not match.") }
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Passwords do not match.")
+                                }
                             } else {
                                 authViewModel.signUp(email, password)
                             }
@@ -142,36 +153,62 @@ fun SignUpScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
-                                    brush = Brush.horizontalGradient(colors = listOf(BlueGradientStart, GreenGradientEnd)),
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            BlueGradientStart,
+                                            GreenGradientEnd
+                                        )
+                                    ),
                                     shape = RoundedCornerShape(25.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (authState is AuthViewModel.AuthState.Loading) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             } else {
-                                Text("Sign Up", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Sign Up",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
                 }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 TextButton(onClick = onNavigateToLogin) {
                     Row {
-                        Text(text = "Already have an account? ", color = Color.White.copy(alpha = 0.8f))
-                        Text(text = "Login", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Already have an account? ",
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            text = "Login",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
         }
     }
 
+    // 🧩 React to Auth State
     LaunchedEffect(authState) {
         when (val state = authState) {
             is AuthViewModel.AuthState.Authenticated -> onSignUpSuccess()
+            is AuthViewModel.AuthState.Message -> {
+                snackbarHostState.showSnackbar(state.message)
+                authViewModel.resetState()
+            }
             is AuthViewModel.AuthState.Error -> {
-                snackbarHostState.showSnackbar(state.message, duration = SnackbarDuration.Long)
+                snackbarHostState.showSnackbar(state.message)
                 authViewModel.resetState()
             }
             else -> {}

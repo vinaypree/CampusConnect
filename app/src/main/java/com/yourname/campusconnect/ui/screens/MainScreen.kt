@@ -1,6 +1,5 @@
 package com.yourname.campusconnect.ui.screens
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -107,21 +106,24 @@ fun BottomNavigationBar(
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     var unreadCount by remember { mutableIntStateOf(0) }
 
-    // 🔥 Real-time unread listener for all chats
+    // ✅ Real-time unread listener
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             firestore.collectionGroup("messages")
-                .whereArrayContains("unreadBy", currentUserId)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) return@addSnapshotListener
-                    unreadCount = snapshot?.size() ?: 0
+                    val count = snapshot?.documents?.count { doc ->
+                        val unreadBy = doc.get("unreadBy") as? List<*> ?: emptyList<Any>()
+                        unreadBy.contains(currentUserId)
+                    } ?: 0
+                    unreadCount = count
                 }
         }
     }
 
     val items = listOf(
         NavigationItem("Home", "home", Icons.Default.Home),
-        NavigationItem("Matches", "matches", Icons.Default.People),
+        NavigationItem("Explore", "matches", Icons.Default.People),
         NavigationItem("Chat", "chat", Icons.AutoMirrored.Filled.Chat),
         NavigationItem("Profile", "profile", Icons.Default.Person)
     )
@@ -178,6 +180,5 @@ fun BottomNavigationBar(
         }
     }
 }
-
 
 data class NavigationItem(val title: String, val route: String, val icon: ImageVector)

@@ -66,7 +66,7 @@ fun MatchingHubScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         ExpandedMatchingOptionCard(
-            title = "Find a Companion",
+            title = "Find a Friend",
             description = "Find a study partner, gym buddy, or friend",
             icon = Icons.Default.Group,
             onClick = onNavigateToCompanion,

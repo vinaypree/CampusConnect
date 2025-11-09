@@ -27,49 +27,42 @@ class ChatViewModel(
         listenForUnreadCounts()
     }
 
-    /** 🔄 Real-time unread message listener (for badges) */
     private fun listenForUnreadCounts() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        unreadListener?.remove()
         unreadListener = repository.listenUnreadCounts(currentUserId) { counts ->
             _unreadCounts.value = counts
         }
     }
 
-    /** 📥 Load all chat messages (real-time) */
     fun loadMessages(friendId: String) {
-        val chatId = generateChatId(
-            FirebaseAuth.getInstance().currentUser?.uid ?: "",
-            friendId
-        )
+        viewModelScope.launch {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            val chatId = repository.getExistingChatId(currentUserId, friendId)
 
-        messagesListener?.remove() // remove previous listener if any
-        messagesListener = repository.listenForMessages(chatId, { messages ->
-            _messages.value = messages.sortedBy { it.timestamp }
-        }, { error ->
-            error.printStackTrace()
-        })
+            messagesListener?.remove()
+            messagesListener = repository.listenForMessages(
+                chatId,
+                onMessagesChanged = { messages ->
+                    _messages.value = messages.sortedBy { it.timestamp }
+                },
+                onError = { it.printStackTrace() }
+            )
+        }
     }
 
-    /** 🟢 Mark messages as read when chat is opened */
     fun markMessagesAsRead(friendId: String) {
         viewModelScope.launch {
             repository.markMessagesAsRead(friendId)
         }
     }
 
-    /** ✉️ Send a new message */
     fun sendMessage(friendId: String, text: String) {
         viewModelScope.launch {
             repository.sendMessage(friendId, text)
         }
     }
 
-    /** 🔑 Consistent chat ID for both participants */
-    private fun generateChatId(uid1: String, uid2: String): String {
-        return if (uid1 < uid2) "${uid1}_$uid2" else "${uid2}_$uid1"
-    }
-
-    /** 🧹 Clean up Firestore listeners */
     override fun onCleared() {
         unreadListener?.remove()
         messagesListener?.remove()

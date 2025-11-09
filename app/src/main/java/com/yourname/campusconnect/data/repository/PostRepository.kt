@@ -16,7 +16,7 @@ class PostRepository {
     private val auth = FirebaseAuth.getInstance()
     private val postsCollection = db.collection("posts")
 
-    // 🔹 Create a new post
+    // 🔹 Create new post
     suspend fun createPost(post: Post): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: throw Exception("User not logged in")
@@ -26,7 +26,11 @@ class PostRepository {
                 postId = newPostRef.id,
                 authorId = uid,
                 likes = emptyList(),
-//                commentCount = 0
+                visibility = when (post.visibility.lowercase()) {
+                    "friends", "friends only" -> "friends"
+                    else -> "public"
+                },
+                timestamp = Timestamp.now()
             )
 
             newPostRef.set(postWithDefaults).await()
@@ -38,7 +42,7 @@ class PostRepository {
         }
     }
 
-    // 🔹 Fetch posts once
+    // 🔹 Get all posts (no filtering here)
     suspend fun getAllPosts(): Result<List<Post>> {
         return try {
             val snapshot = postsCollection
@@ -52,7 +56,7 @@ class PostRepository {
         }
     }
 
-    // 🔹 Listen for real-time post updates
+    // 🔹 Real-time listener (no nested queries)
     fun listenToPosts(
         onPostsChanged: (List<Post>) -> Unit,
         onError: (Exception) -> Unit
@@ -64,45 +68,29 @@ class PostRepository {
                     onError(e)
                     return@addSnapshotListener
                 }
-
                 if (snapshots != null) {
-                    val posts = snapshots.documents.mapNotNull { doc ->
-                        val post = doc.toObject(Post::class.java)
-                        post?.copy(
-                            postId = doc.id,
-//                            commentCount = (doc.getLong("commentCount") ?: 0).toInt(),
-                            likes = (doc.get("likes") as? List<String>) ?: emptyList()
-                        )
-                    }
+                    val posts = snapshots.toObjects(Post::class.java)
                     onPostsChanged(posts)
                 }
             }
     }
 
-    // 🔹 Like / Unlike post
+    // 🔹 Like / Unlike
     suspend fun toggleLike(postId: String, userId: String): Result<Unit> {
         return try {
             val postRef = postsCollection.document(postId)
             val snapshot = postRef.get().await()
             val currentLikes = (snapshot.get("likes") as? List<String>) ?: emptyList()
             val liked = currentLikes.contains(userId)
-
-            if (liked) {
-                postRef.update("likes", FieldValue.arrayRemove(userId)).await()
-                Log.d("PostRepository", "👍 Like removed by $userId for post $postId")
-            } else {
-                postRef.update("likes", FieldValue.arrayUnion(userId)).await()
-                Log.d("PostRepository", "❤️ Liked by $userId for post $postId")
-            }
-
+            if (liked) postRef.update("likes", FieldValue.arrayRemove(userId)).await()
+            else postRef.update("likes", FieldValue.arrayUnion(userId)).await()
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("PostRepository", "❌ Failed to toggle like: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    // 🔹 Add comment and safely increment count
+    // 🔹 Add comment
     suspend fun addComment(
         postId: String,
         commenterId: String,
@@ -112,7 +100,6 @@ class PostRepository {
         return try {
             val postRef = postsCollection.document(postId)
             val commentRef = postRef.collection("comments").document()
-
             val commentMap = mapOf(
                 "commentId" to commentRef.id,
                 "authorId" to commenterId,
@@ -120,21 +107,12 @@ class PostRepository {
                 "content" to content,
                 "timestamp" to Timestamp.now()
             )
-
             val batch = db.batch()
-
-            // ✅ Write comment in subcollection
             batch.set(commentRef, commentMap)
-
-            // ✅ Increment count or set it to 1 if missing
             batch.update(postRef, "commentCount", FieldValue.increment(1))
-
             batch.commit().await()
-
-            Log.d("PostRepository", "✅ Comment added for post $postId and count incremented.")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("PostRepository", "❌ Failed to add comment: ${e.message}", e)
             Result.failure(e)
         }
     }

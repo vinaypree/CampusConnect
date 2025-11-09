@@ -36,12 +36,18 @@ class PostViewModel : ViewModel() {
         listenToPosts()
     }
 
-    // 🔹 Firestore live listener — keeps comment counts fresh
     private fun listenToPosts() {
         postListener?.remove()
         postListener = postRepository.listenToPosts(
             onPostsChanged = { posts ->
-                _posts.value = posts
+                val normalized = posts.map {
+                    it.copy(visibility = when (it.visibility.lowercase()) {
+                        "public" -> "public"
+                        "friends", "friends only" -> "friends"
+                        else -> "public"
+                    })
+                }
+                _posts.value = normalized
             },
             onError = { e ->
                 _postState.value = PostState.Error(e.message ?: "Failed to fetch posts")
@@ -49,58 +55,37 @@ class PostViewModel : ViewModel() {
         )
     }
 
-    // 🔹 Create post
-    fun createPost(content: String, visibility: String) {
+    fun createPostObject(post: Post) {
         viewModelScope.launch {
             _postState.value = PostState.Loading
+
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
             val user = userRepository.getUserProfile(uid).getOrNull() ?: return@launch
 
-            if (content.isBlank()) {
-                _postState.value = PostState.Error("Post cannot be empty")
-                return@launch
+            val visibility = when (post.visibility.lowercase()) {
+                "friends only", "friends" -> "friends"
+                else -> "public"
             }
 
-            val newPost = Post(
+            val finalPost = post.copy(
                 authorId = uid,
                 authorName = user.name,
                 authorDepartment = user.department,
                 authorYear = user.year,
-                content = content,
                 visibility = visibility,
                 timestamp = Timestamp.now()
             )
 
-            val result = postRepository.createPost(newPost)
-            _postState.value = if (result.isSuccess) {
-                PostState.Success
-            } else {
-                PostState.Error(result.exceptionOrNull()?.message ?: "Failed to post")
-            }
+            val result = postRepository.createPost(finalPost)
+            _postState.value = if (result.isSuccess) PostState.Success
+            else PostState.Error(result.exceptionOrNull()?.message ?: "Failed to post")
         }
     }
 
-    // 🔹 Add comment (increments count instantly in UI)
-    fun addComment(post: Post, content: String) {
-        viewModelScope.launch {
-            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-            val user = userRepository.getUserProfile(uid).getOrNull() ?: return@launch
-
-            val result = postRepository.addComment(post.postId, uid, user.name, content)
-
-//            if (result.isSuccess) {
-//                // 🔹 Instantly update comment count locally
-//                val updatedPosts = _posts.value.map {
-//                    if (it.postId == post.postId)
-//                        it.copy(commentCount = it.commentCount + 1)
-//                    else it
-//                }
-//                _posts.value = updatedPosts
-//            }
-        }
+    fun resetState() {
+        _postState.value = PostState.Idle
     }
 
-    // 🔹 Toggle like (auto-updated by Firestore listener)
     fun likePost(post: Post) {
         viewModelScope.launch {
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch

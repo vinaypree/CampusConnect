@@ -8,10 +8,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout // ✅ FIX 1: Updated import
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -35,6 +37,9 @@ fun ProfileScreen(
     onLogout: () -> Unit
 ) {
     val userProfile by profileViewModel.userProfile.collectAsState()
+    val profileState by profileViewModel.profileState.collectAsState()
+    val authState by authViewModel.authState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var name by remember { mutableStateOf("") }
     var department by remember { mutableStateOf("") }
@@ -45,7 +50,6 @@ fun ProfileScreen(
     var skillsToLearn by remember { mutableStateOf("") }
     var interests by remember { mutableStateOf("") }
 
-    // Load user data into fields
     LaunchedEffect(userProfile) {
         userProfile?.let {
             name = it.name
@@ -58,10 +62,6 @@ fun ProfileScreen(
             interests = it.interests.joinToString(", ")
         }
     }
-
-    val profileState by profileViewModel.profileState.collectAsState()
-    val authState by authViewModel.authState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val gradientBrush = remember {
         Brush.verticalGradient(listOf(BlueGradientStart, GreenGradientEnd))
@@ -78,7 +78,8 @@ fun ProfileScreen(
                 actions = {
                     IconButton(onClick = { authViewModel.logout() }) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            // ✅ FIX 2: Changed to the AutoMirrored version
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Logout",
                             tint = Color.White
                         )
@@ -95,7 +96,6 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Profile Picture Placeholder ---
             Button(
                 onClick = { /* No image picker yet */ },
                 shape = CircleShape,
@@ -126,7 +126,6 @@ fun ProfileScreen(
                 unfocusedLabelColor = Color.White.copy(alpha = 0.7f)
             )
 
-            // --- Text Fields ---
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -202,13 +201,15 @@ fun ProfileScreen(
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Save Button ---
             Button(
                 onClick = {
                     val yearInt = year.toIntOrNull() ?: 0
-                    val skillsTeachList = skillsToTeach.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    val skillsLearnList = skillsToLearn.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    val interestsList = interests.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    val skillsTeachList = skillsToTeach.split(",").map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    val skillsLearnList = skillsToLearn.split(",").map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    val interestsList = interests.split(",").map { it.trim() }
+                        .filter { it.isNotEmpty() }
 
                     profileViewModel.saveProfile(
                         name = name,
@@ -257,23 +258,29 @@ fun ProfileScreen(
         }
     }
 
-    // --- Snackbar + Logout Handlers ---
     LaunchedEffect(profileState) {
         when (val state = profileState) {
             is ProfileViewModel.ProfileState.Success -> {
                 snackbarHostState.showSnackbar("Profile Saved!", duration = SnackbarDuration.Short)
                 onProfileSaved()
             }
+
             is ProfileViewModel.ProfileState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
             }
+
             else -> Unit
         }
     }
 
+    // ✅ Logout detection only after explicit logout
     LaunchedEffect(authState) {
-        if (authState is AuthViewModel.AuthState.Unauthenticated) {
+        val currentState = authState
+        if (currentState is AuthViewModel.AuthState.Message &&
+            currentState.message == "Logged out"
+        ) {
             onLogout()
         }
     }
+
 }

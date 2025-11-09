@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.Timestamp
+import com.yourname.campusconnect.data.models.Post
 import com.yourname.campusconnect.post.PostViewModel
 import com.yourname.campusconnect.ui.theme.DarkBlueStart
 
@@ -36,11 +38,25 @@ fun CreatePostScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlueStart),
                 actions = {
                     Button(
-                        onClick = { postViewModel.createPost(content, visibility) },
+                        onClick = {
+                            if (content.isNotBlank()) {
+                                val visibilityKey =
+                                    if (visibility == "Friends Only") "friends" else "public"
+                                val newPost = Post(
+                                    content = content.trim(),
+                                    visibility = visibilityKey,
+                                    timestamp = Timestamp.now()
+                                )
+                                postViewModel.createPostObject(newPost)
+                            }
+                        },
                         enabled = postState !is PostViewModel.PostState.Loading
                     ) {
                         if (postState is PostViewModel.PostState.Loading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White
+                            )
                         } else {
                             Text("Post")
                         }
@@ -63,7 +79,6 @@ fun CreatePostScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                // --- THIS IS THE CORRECTED PART ---
                 colors = TextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
@@ -98,10 +113,12 @@ fun CreatePostScreen(
     LaunchedEffect(postState) {
         when (val state = postState) {
             is PostViewModel.PostState.Success -> {
+                postViewModel.resetState()
                 onPostCreated()
             }
             is PostViewModel.PostState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
+                postViewModel.resetState()
             }
             else -> {}
         }

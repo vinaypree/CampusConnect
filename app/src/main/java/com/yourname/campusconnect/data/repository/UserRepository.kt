@@ -12,21 +12,18 @@ class UserRepository {
     private val db = FirebaseFirestore.getInstance()
     private val usersCollection = db.collection("users")
     private val friendshipsCollection = db.collection("friendships")
+    private val chatsCollection = db.collection("chats")
     private val auth = FirebaseAuth.getInstance()
 
     // ✅ Fetch all users except self, friends, and pending ones
     suspend fun getFilteredUsers(): Result<List<User>> {
         return try {
             val currentUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
-
-            // Fetch all users
             val allUsers = usersCollection.get().await().toObjects(User::class.java)
 
-            // Fetch all friendships (sent and received)
             val snapshot = friendshipsCollection
                 .whereIn("status", listOf("pending", "accepted"))
-                .get()
-                .await()
+                .get().await()
                 .toObjects(Friendship::class.java)
 
             val connectedIds = snapshot.filter {
@@ -43,7 +40,6 @@ class UserRepository {
         }
     }
 
-    // --- Create or Update User Profile ---
     suspend fun createUserProfile(user: User): Result<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
@@ -68,28 +64,23 @@ class UserRepository {
         return usersCollection.document(uid).get().await().exists()
     }
 
-    // --- Send Friend Request ---
     suspend fun sendFriendRequest(toUserId: String): Result<Unit> {
         return try {
             val fromUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
 
-            // 🔍 Check if any request exists between these two users (both directions)
             val existing = friendshipsCollection
                 .whereIn("status", listOf("pending", "accepted"))
-                .get()
-                .await()
+                .get().await()
                 .toObjects(Friendship::class.java)
                 .filter {
                     (it.fromUserId == fromUserId && it.toUserId == toUserId) ||
                             (it.fromUserId == toUserId && it.toUserId == fromUserId)
                 }
 
-            // ⚠️ If any existing request or friendship found
             if (existing.isNotEmpty()) {
                 return Result.failure(Exception("Request already sent or already friends"))
             }
 
-            // ✅ Otherwise, create new request
             val newDoc = friendshipsCollection.document()
             val friendship = Friendship(
                 friendshipId = newDoc.id,
@@ -105,37 +96,34 @@ class UserRepository {
         }
     }
 
-
-    // --- Get Pending Friend Requests ---
     suspend fun getPendingFriendRequests(): Result<List<Friendship>> {
         return try {
             val currentUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
             val snapshot = friendshipsCollection
                 .whereEqualTo("toUserId", currentUserId)
                 .whereEqualTo("status", "pending")
-                .get()
-                .await()
+                .get().await()
             Result.success(snapshot.toObjects(Friendship::class.java))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // --- Accept Friend Request (FIXED FULLY) ---
     suspend fun acceptFriendRequest(friendshipId: String, fromUserId: String): Result<Unit> {
         return try {
             val currentUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
-
             val friendshipRef = friendshipsCollection.document(friendshipId)
             val currentUserRef = usersCollection.document(currentUserId)
             val fromUserRef = usersCollection.document(fromUserId)
 
-            // ✅ Use batch to ensure atomic updates
             db.runBatch { batch ->
                 batch.update(friendshipRef, "status", "accepted")
                 batch.update(currentUserRef, "friends", FieldValue.arrayUnion(fromUserId))
                 batch.update(fromUserRef, "friends", FieldValue.arrayUnion(currentUserId))
             }.await()
+
+            // ✅ Create placeholder chat doc
+            createInitialChatDocument(currentUserId, fromUserId)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -143,7 +131,6 @@ class UserRepository {
         }
     }
 
-    // --- Decline Friend Request ---
     suspend fun declineFriendRequest(friendshipId: String): Result<Unit> {
         return try {
             friendshipsCollection.document(friendshipId)
@@ -155,15 +142,12 @@ class UserRepository {
         }
     }
 
-    // --- Get Accepted Friends ---
     suspend fun getAcceptedFriends(): Result<List<User>> {
         return try {
             val currentUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
-
             val snapshot = friendshipsCollection
                 .whereEqualTo("status", "accepted")
-                .get()
-                .await()
+                .get().await()
 
             val friendships = snapshot.toObjects(Friendship::class.java)
                 .filter { it.fromUserId == currentUserId || it.toUserId == currentUserId }
@@ -176,10 +160,62 @@ class UserRepository {
 
             val friendsSnapshot = usersCollection.whereIn("uid", friendIds).get().await()
             val friends = friendsSnapshot.toObjects(User::class.java)
-
             Result.success(friends)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun unfriendUser(friendId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid ?: return Result.failure(Exception("User not logged in"))
+
+            val friendshipSnapshot = friendshipsCollection
+                .whereEqualTo("status", "accepted")
+                .get().await()
+
+            val friendshipDoc = friendshipSnapshot.documents.firstOrNull { doc ->
+                val fromUser = doc.getString("fromUserId")
+                val toUser = doc.getString("toUserId")
+                (fromUser == currentUserId && toUser == friendId) ||
+                        (fromUser == friendId && toUser == currentUserId)
+            }
+
+            if (friendshipDoc != null) friendshipsCollection.document(friendshipDoc.id).delete().await()
+
+            db.runBatch { batch ->
+                batch.update(usersCollection.document(currentUserId), "friends", FieldValue.arrayRemove(friendId))
+                batch.update(usersCollection.document(friendId), "friends", FieldValue.arrayRemove(currentUserId))
+            }.await()
+
+            val chatId = if (currentUserId < friendId) "${currentUserId}_${friendId}" else "${friendId}_${currentUserId}"
+            val chatRef = chatsCollection.document(chatId)
+            val messages = chatRef.collection("messages").get().await()
+            for (msg in messages.documents) msg.reference.delete().await()
+            chatRef.delete().await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ✅ FIXED — Adds "unreadBy" and placeholder text
+    private suspend fun createInitialChatDocument(user1: String, user2: String) {
+        val chatId = if (user1 < user2) "${user1}_$user2" else "${user2}_$user1"
+        val chatDoc = chatsCollection.document(chatId)
+        val snapshot = chatDoc.get().await()
+
+        if (!snapshot.exists()) {
+            chatDoc.set(
+                mapOf(
+                    "chatId" to chatId,
+                    "participants" to listOf(user1, user2),
+                    "lastMessage" to "Start chat",
+                    "lastMessageTimestamp" to System.currentTimeMillis(),
+                    "unreadBy" to listOf<String>()
+                )
+            ).await()
         }
     }
 }

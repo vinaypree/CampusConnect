@@ -10,7 +10,6 @@ data class ChatMessage(
     val id: String = "",
     val senderId: String = "",
     val text: String = "",
-    val message: String? = null,
     val timestamp: Long = 0L,
     val unreadBy: List<String> = emptyList()
 )
@@ -43,21 +42,25 @@ class ChatRepository {
             }
     }
 
-    // 🔥 fixed: we emit chatId-based unread counts
+    // ✅ Real-time unread count listener
     fun listenUnreadCounts(
         currentUserId: String,
         onCountsChanged: (Map<String, Int>) -> Unit
     ): ListenerRegistration {
         return db.collectionGroup("messages")
-            .whereArrayContains("unreadBy", currentUserId)
             .addSnapshotListener { snapshots, e ->
                 if (e != null) return@addSnapshotListener
 
                 val counts = mutableMapOf<String, Int>()
+
                 snapshots?.documents?.forEach { doc ->
                     val chatId = doc.reference.parent.parent?.id ?: return@forEach
-                    counts[chatId] = counts.getOrDefault(chatId, 0) + 1
+                    val unreadBy = doc.get("unreadBy") as? List<*> ?: emptyList<Any>()
+                    if (unreadBy.contains(currentUserId)) {
+                        counts[chatId] = counts.getOrDefault(chatId, 0) + 1
+                    }
                 }
+
                 onCountsChanged(counts)
             }
     }
@@ -65,8 +68,8 @@ class ChatRepository {
     suspend fun sendMessage(friendId: String, text: String) {
         val senderId = currentUserId ?: return
         val chatId = generateChatId(senderId, friendId)
-        val messageRef = db.collection("chats").document(chatId)
-            .collection("messages").document()
+        val chatDocRef = db.collection("chats").document(chatId)
+        val messageRef = chatDocRef.collection("messages").document()
 
         val message = hashMapOf(
             "senderId" to senderId,
@@ -75,10 +78,22 @@ class ChatRepository {
             "unreadBy" to listOf(friendId)
         )
 
-        db.collection("chats").document(chatId).set(
+        // ensure chat doc exists
+        val snapshot = chatDocRef.get().await()
+        if (!snapshot.exists()) {
+            chatDocRef.set(
+                mapOf(
+                    "chatId" to chatId,
+                    "participants" to listOf(senderId, friendId),
+                    "lastMessage" to "",
+                    "lastMessageTimestamp" to System.currentTimeMillis()
+                )
+            ).await()
+        }
+
+        // update latest message data
+        chatDocRef.update(
             mapOf(
-                "chatId" to chatId,
-                "participants" to listOf(senderId, friendId),
                 "lastMessage" to text,
                 "lastMessageTimestamp" to System.currentTimeMillis()
             )
@@ -91,11 +106,9 @@ class ChatRepository {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val chatId = generateChatId(currentUserId, friendId)
 
-        val messagesRef = db.collection("chats")
-            .document(chatId)
-            .collection("messages")
-
+        val messagesRef = db.collection("chats").document(chatId).collection("messages")
         val unread = messagesRef.whereArrayContains("unreadBy", currentUserId).get().await()
+
         for (doc in unread.documents) {
             messagesRef.document(doc.id)
                 .update("unreadBy", FieldValue.arrayRemove(currentUserId))
@@ -103,6 +116,18 @@ class ChatRepository {
     }
 
     private fun generateChatId(uid1: String, uid2: String): String {
-        return if (uid1 < uid2) "${uid1}_$uid2" else "${uid2}_$uid1"
+        val idWithUnderscore = if (uid1 < uid2) "${uid1}$uid2" else "${uid2}$uid1"
+        val idWithoutUnderscore = if (uid1 < uid2) "${uid1}$uid2" else "${uid2}$uid1"
+
+        // ✅ Use underscore for new chats but keep backward compatibility
+        return idWithUnderscore
+    }
+
+    suspend fun getExistingChatId(uid1: String, uid2: String): String {
+        val chatIdWithUnderscore = if (uid1 < uid2) "${uid1}$uid2" else "${uid2}$uid1"
+        val chatIdWithoutUnderscore = if (uid1 < uid2) "${uid1}$uid2" else "${uid2}$uid1"
+
+        val withUnderscoreDoc = db.collection("chats").document(chatIdWithUnderscore).get().await()
+        return if (withUnderscoreDoc.exists()) chatIdWithUnderscore else chatIdWithoutUnderscore
     }
 }

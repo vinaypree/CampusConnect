@@ -1,5 +1,6 @@
 package com.yourname.campusconnect.chat
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,18 +27,23 @@ fun ChatListScreen(
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
+    // 🔄 Load all chats and update live with unread badges
     LaunchedEffect(currentUserId, unreadCounts) {
         scope.launch {
-            chatList = fetchChatsForUser(currentUserId)
+            chatList = fetchAllFriendsWithChatData(currentUserId)
             isLoading = false
         }
     }
 
     when {
         isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-        chatList.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No chats") }
+
+        chatList.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No chats yet") }
+
         else -> LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(8.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp)
         ) {
             items(chatList.size) { i ->
                 val chat = chatList[i]
@@ -55,7 +61,12 @@ fun ChatListScreen(
 }
 
 @Composable
-fun ChatListItem(friendName: String, lastMessage: String?, unreadCount: Int, onClick: () -> Unit) {
+fun ChatListItem(
+    friendName: String,
+    lastMessage: String?,
+    unreadCount: Int,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -64,20 +75,28 @@ fun ChatListItem(friendName: String, lastMessage: String?, unreadCount: Int, onC
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f)) {
                 Text(friendName, fontWeight = FontWeight.Bold)
-                if (!lastMessage.isNullOrEmpty()) {
-                    Text(lastMessage, style = MaterialTheme.typography.bodySmall)
-                }
+                Text(
+                    text = if (lastMessage.isNullOrBlank()) "Start chat" else lastMessage,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
+            // 🔥 Unread badge
             if (unreadCount > 0) {
-                Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                    Text(unreadCount.toString())
+                Badge(containerColor = Color.Red) {
+                    Text(
+                        unreadCount.toString(),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
         }
@@ -88,34 +107,56 @@ data class ChatItem(
     val chatId: String,
     val friendId: String,
     val friendName: String,
-    val lastMessage: String?
+    val lastMessage: String?,
+    val lastMessageTimestamp: Long = 0L
 )
 
-suspend fun fetchChatsForUser(currentUserId: String): List<ChatItem> {
+/** ✅ Fetch chats & friends while supporting both old and new chat IDs */
+suspend fun fetchAllFriendsWithChatData(currentUserId: String): List<ChatItem> {
     val firestore = FirebaseFirestore.getInstance()
     val chatList = mutableListOf<ChatItem>()
-    val chatsSnapshot = firestore.collection("chats")
-        .whereArrayContains("participants", currentUserId)
+
+    // Step 1: get all accepted friendships
+    val friendshipsSnapshot = firestore.collection("friendships")
+        .whereEqualTo("status", "accepted")
         .get()
         .await()
 
-    for (doc in chatsSnapshot.documents) {
-        val participants = doc.get("participants") as? List<String> ?: continue
-        val friendId = participants.firstOrNull { it != currentUserId } ?: continue
-        val friendName = firestore.collection("users").document(friendId)
-            .get().await().getString("name") ?: "Unknown"
-        chatList.add(
-            ChatItem(
-                chatId = doc.id,
-                friendId = friendId,
-                friendName = friendName,
-                lastMessage = doc.getString("lastMessage")
-            )
-        )
+    val friendIds = friendshipsSnapshot.documents.mapNotNull { doc ->
+        val fromId = doc.getString("fromUserId")
+        val toId = doc.getString("toUserId")
+        when (currentUserId) {
+            fromId -> toId
+            toId -> fromId
+            else -> null
+        }
+    }.distinct()
+
+    // Step 2: for each friend, fetch both old/new chat IDs
+    for (friendId in friendIds) {
+        val friendDoc = firestore.collection("users").document(friendId).get().await()
+        val friendName = friendDoc.getString("name") ?: "Unknown User"
+
+        val chatIdWithUnderscore =
+            if (currentUserId < friendId) "${currentUserId}$friendId" else "${friendId}$currentUserId"
+        val chatIdWithoutUnderscore =
+            if (currentUserId < friendId) "${currentUserId}$friendId" else "${friendId}$currentUserId"
+
+        // Try new format first, then old format
+        val chatDoc = firestore.collection("chats").document(chatIdWithUnderscore).get().await()
+        val finalChatDoc =
+            if (!chatDoc.exists())
+                firestore.collection("chats").document(chatIdWithoutUnderscore).get().await()
+            else chatDoc
+
+        val finalChatId =
+            if (chatDoc.exists()) chatIdWithUnderscore else chatIdWithoutUnderscore
+        val lastMessage = finalChatDoc.getString("lastMessage") ?: "Start chat"
+        val timestamp = finalChatDoc.getLong("lastMessageTimestamp") ?: 0L
+
+        chatList.add(ChatItem(finalChatId, friendId, friendName, lastMessage, timestamp))
     }
 
-    return chatList.sortedByDescending { doc ->
-        chatsSnapshot.documents.find { it.id == doc.chatId }
-            ?.getLong("lastMessageTimestamp") ?: 0L
-    }
+    // Step 3: sort by latest chat
+    return chatList.sortedByDescending { it.lastMessageTimestamp }
 }

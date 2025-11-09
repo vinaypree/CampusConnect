@@ -2,14 +2,15 @@ package com.yourname.campusconnect.post
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.yourname.campusconnect.data.models.Post
 import com.yourname.campusconnect.data.repository.PostRepository
 import com.yourname.campusconnect.data.repository.UserRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.google.firebase.auth.FirebaseAuth
 
 class FeedViewModel : ViewModel() {
 
@@ -27,12 +28,10 @@ class FeedViewModel : ViewModel() {
 
     private var listenerRegistration: ListenerRegistration? = null
 
-    // Keep a cached set of friend IDs to filter Friends-Only posts
     private val friendIds = mutableSetOf<String>()
     private val currentUserId: String? get() = FirebaseAuth.getInstance().currentUser?.uid
 
     init {
-        // Step 1: load friends first
         loadFriendIdsThenListen()
     }
 
@@ -49,33 +48,39 @@ class FeedViewModel : ViewModel() {
                     friendIds.clear()
                 }
 
-                // then start listening to posts
+                delay(300) // ensure friendIds ready
                 startListeningToPosts()
             } catch (e: Exception) {
                 _feedState.value = FeedState.Error(e.message ?: "Failed to load friends")
-                startListeningToPosts() // still try to listen to posts
+                startListeningToPosts()
             }
         }
     }
 
     private fun startListeningToPosts() {
-        // remove previous listener if any
         listenerRegistration?.remove()
 
         listenerRegistration = postRepository.listenToPosts(
             onPostsChanged = { posts ->
-                // Filter posts: Public OR Friends Only where author is friend or the current user
                 val uid = currentUserId
-                val filtered = posts.filter { post ->
-                    when (post.visibility) {
-                        "Public" -> true
-                        "Friends Only" -> {
-                            // show if author is current user or author is in friendIds
-                            uid != null && (post.authorId == uid || friendIds.contains(post.authorId))
+                val normalized = posts.map {
+                    it.copy(
+                        visibility = when (it.visibility.lowercase()) {
+                            "public" -> "public"
+                            "friends", "friends only" -> "friends"
+                            else -> "public"
                         }
-                        else -> true // default to public if unknown string
+                    )
+                }
+
+                val filtered = normalized.filter { post ->
+                    when (post.visibility) {
+                        "public" -> true
+                        "friends" -> uid != null && (post.authorId == uid || friendIds.contains(post.authorId))
+                        else -> true
                     }
                 }
+
                 _feedState.value = FeedState.Success(filtered)
             },
             onError = { e ->
@@ -91,46 +96,52 @@ class FeedViewModel : ViewModel() {
             if (result.isSuccess) {
                 val posts = result.getOrNull() ?: emptyList()
                 val uid = currentUserId
-                val filtered = posts.filter { post ->
+
+                val normalized = posts.map {
+                    it.copy(
+                        visibility = when (it.visibility.lowercase()) {
+                            "public" -> "public"
+                            "friends", "friends only" -> "friends"
+                            else -> "public"
+                        }
+                    )
+                }
+
+                val filtered = normalized.filter { post ->
                     when (post.visibility) {
-                        "Public" -> true
-                        "Friends Only" -> uid != null && (post.authorId == uid || friendIds.contains(post.authorId))
+                        "public" -> true
+                        "friends" -> uid != null && (post.authorId == uid || friendIds.contains(post.authorId))
                         else -> true
                     }
                 }
+
                 _feedState.value = FeedState.Success(filtered)
             } else {
-                _feedState.value = FeedState.Error(result.exceptionOrNull()?.message ?: "Failed to fetch posts.")
+                _feedState.value =
+                    FeedState.Error(result.exceptionOrNull()?.message ?: "Failed to fetch posts.")
             }
+        }
+    }
+
+    fun likePost(post: Post) {
+        val uid = currentUserId ?: return
+        viewModelScope.launch {
+            postRepository.toggleLike(post.postId, uid)
+        }
+    }
+
+    fun addComment(post: Post, content: String) {
+        val uid = currentUserId ?: return
+        viewModelScope.launch {
+            val userResult = userRepository.getUserProfile(uid)
+            val user = userResult.getOrNull()
+            val name = user?.name ?: "Unknown"
+            postRepository.addComment(post.postId, uid, name, content)
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         listenerRegistration?.remove()
-    }
-
-    // --- PUBLIC ACTIONS: like and comment ---
-
-    // Toggle like on a post for the current user
-    fun likePost(post: Post) {
-        val uid = currentUserId ?: return
-        viewModelScope.launch {
-            postRepository.toggleLike(post.postId, uid)
-            // no local state mutation required because listener will update feed
-        }
-    }
-
-    // Add a comment: (we avoid UI changes; we accept content param)
-    fun addComment(post: Post, content: String) {
-        val uid = currentUserId ?: return
-        viewModelScope.launch {
-            // fetch current user profile for name
-            val userResult = userRepository.getUserProfile(uid)
-            val user = userResult.getOrNull()
-            val name = user?.name ?: "Unknown"
-            postRepository.addComment(post.postId, uid, name, content)
-            // listener will update commentCount when Firestore triggers
-        }
     }
 }

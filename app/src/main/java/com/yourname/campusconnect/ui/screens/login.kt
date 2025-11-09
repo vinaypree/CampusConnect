@@ -32,7 +32,7 @@ fun LoginScreen(
     authViewModel: AuthViewModel = viewModel(),
     onLoginSuccess: () -> Unit,
     onNavigateToSignUp: () -> Unit,
-    onForgotPassword: () -> Unit
+    onForgotPassword: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -161,11 +161,14 @@ fun LoginScreen(
                         }
                     }
                 }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
-                TextButton(onClick = onForgotPassword) {
+                TextButton(onClick = { authViewModel.resetPassword(email)
+                }) {
                     Text(text = "Forgot Password?", color = Color.White.copy(alpha = 0.8f))
                 }
+
                 TextButton(onClick = onNavigateToSignUp) {
                     Row {
                         Text(text = "Don't have an account? ", color = Color.White.copy(alpha = 0.8f))
@@ -179,11 +182,10 @@ fun LoginScreen(
     LaunchedEffect(authState) {
         when (val state = authState) {
             is AuthViewModel.AuthState.Authenticated -> onLoginSuccess()
-            is AuthViewModel.AuthState.Error -> {
-                snackbarHostState.showSnackbar(state.message, duration = SnackbarDuration.Long)
-                authViewModel.resetState()
-            }
+            is AuthViewModel.AuthState.Message -> snackbarHostState.showSnackbar(state.message)
+            is AuthViewModel.AuthState.Error -> snackbarHostState.showSnackbar(state.message)
             else -> {}
         }
+        authViewModel.resetState()
     }
 }
