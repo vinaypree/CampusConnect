@@ -90,7 +90,6 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // --- Header ---
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
                     imageVector = Icons.Default.Person,
@@ -103,32 +102,18 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(
-                        post.authorName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = Color.White
-                    )
-                    Text(
-                        "${post.authorDepartment}, ${post.authorYear} Year",
-                        fontSize = 12.sp,
-                        color = Color.LightGray
-                    )
-                    Text(
-                        text = formatTimestampToIST(post.timestamp),
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
+                    Text(post.authorName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                    Text("${post.authorDepartment}, ${post.authorYear} Year", fontSize = 12.sp, color = Color.LightGray)
+                    Text(formatTimestampToIST(post.timestamp), fontSize = 11.sp, color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(post.visibility, fontSize = 10.sp, color = Color.LightGray)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            PostContentText(post.content)  // ✅ clickable + copyable text
+            PostContentText(post.content)  // White clickable text
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Buttons ---
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = onLikeClick,
@@ -143,7 +128,6 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
                 ) { Text("Comment", fontSize = 12.sp) }
             }
 
-            // --- Comments ---
             if (showComments) {
                 Spacer(modifier = Modifier.height(12.dp))
                 LaunchedEffect(post.postId) {
@@ -159,11 +143,7 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
                     comments.forEach { comment ->
                         val name = comment["commenterName"] as? String ?: "Anonymous"
                         val text = comment["content"] as? String ?: ""
-                        Text(
-                            "$name: $text",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
+                        Text("$name: $text", fontSize = 13.sp, color = Color.White.copy(alpha = 0.9f))
                     }
                 }
 
@@ -176,19 +156,16 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
                             .weight(1f)
                             .height(40.dp)
                             .padding(8.dp),
-                        decorationBox = { innerTextField ->
+                        decorationBox = { inner ->
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(4.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
-                                if (commentText.text.isEmpty()) Text(
-                                    "Write a comment...",
-                                    color = Color.Gray,
-                                    fontSize = 13.sp
-                                )
-                                innerTextField()
+                                if (commentText.text.isEmpty())
+                                    Text("Write a comment...", color = Color.Gray, fontSize = 13.sp)
+                                inner()
                             }
                         }
                     )
@@ -228,33 +205,43 @@ fun PostCard(post: Post, onLikeClick: () -> Unit) {
     }
 }
 
-// ✅ Clickable + copyable text with link handling
 @Composable
 fun PostContentText(postText: String) {
     val context = LocalContext.current
     val annotatedText = buildAnnotatedString {
         val regex = "(https?://[\\w./?=&%-]+)".toRegex()
         var lastIndex = 0
+
         regex.findAll(postText).forEach { match ->
             val range = match.range
+
             append(postText.substring(lastIndex, range.first))
+
             pushStringAnnotation(tag = "URL", annotation = match.value)
-            withStyle(style = SpanStyle(color = Color(0xFF2196F3), textDecoration = TextDecoration.Underline)) {
+            withStyle(
+                style = SpanStyle(
+                    color = Color(0xFF64B5F6),
+                    textDecoration = TextDecoration.Underline
+                )
+            ) {
                 append(match.value)
             }
             pop()
+
             lastIndex = range.last + 1
         }
+
         append(postText.substring(lastIndex))
     }
 
     SelectionContainer {
         ClickableText(
             text = annotatedText,
+            style = TextStyle(color = Color.White),   // 🔥 MAKE POST TEXT WHITE
             onClick = { offset ->
-                annotatedText.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                    .firstOrNull()?.let { annotation ->
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
+                annotatedText.getStringAnnotations("URL", offset, offset)
+                    .firstOrNull()?.let {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(it.item))
                         context.startActivity(intent)
                     }
             }
@@ -262,7 +249,6 @@ fun PostContentText(postText: String) {
     }
 }
 
-// ✅ Helper: Format timestamp to IST
 fun formatTimestampToIST(timestamp: com.google.firebase.Timestamp?): String {
     if (timestamp == null) return ""
     val date = timestamp.toDate()
@@ -270,6 +256,3 @@ fun formatTimestampToIST(timestamp: com.google.firebase.Timestamp?): String {
     sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
     return sdf.format(date)
 }
-
-
-
