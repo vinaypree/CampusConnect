@@ -249,6 +249,7 @@ fun PostContentText(postText: String) {
     }
 }
 
+
 fun formatTimestampToIST(timestamp: com.google.firebase.Timestamp?): String {
     if (timestamp == null) return ""
     val date = timestamp.toDate()
